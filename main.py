@@ -1,37 +1,51 @@
+# these are the imports we will use in this program
 import tkinter as tk
 import threading
 import cv2
 import mediapipe as mp
 from gpiozero import Servo
 
+# defines global variables we will use
+# these are flags to control the application state
 quitApplication = False
 tracking = False
 
+# these are the GPIO pins for the servos (To do: change these to your actual GPIO pins)
 xServoPin = 27
 yServoPin = 17
 
-xServo = Servo(xServoPin)
-yServo = Servo(yServoPin)
+# we will be using gpiozeros servo class to control the servos with PWM
+# xServo = Servo(xServoPin)
+# yServo = Servo(yServoPin)
 
-# Calibration offsets and servo positions
+# Calibration offsets and servo positions used for testing
 xOffset = 0
 yOffset = 0
 currentXServoPos = 0  # Range from -1 to 1
 currentYServoPos = 0  # Range from -1 to 1
 
 # Tracking sensitivity (adjust these values to fine-tune responsiveness)
+# used in a make shift PID controller essentially for improved tracking
 TRACKING_SENSITIVITY_X = 0.002  # How much to move servo per pixel difference
 TRACKING_SENSITIVITY_Y = 0.002
 SERVO_SMOOTHING = 0.7  # Smoothing factor (0-1, higher = smoother but slower)
 
+# this is the GUI class using tkinter library documentation can be found at https://docs.python.org/3/library/tk.html
 class Gui:
+    # initializes the gui and sets up layout
     def __init__(self):
+        # defines root element which everything else gets added to this element
+        # basically the main window and tkinter elements are added to this via the pack method
         self.root = tk.Tk()
-        self.root.title("The Awesome Eye Tracker")
+        self.root.title("The Awesome Eye Tracker") # defines window title :)
 
-        label = tk.Label(self.root, text="Press Start to begin tracking")
+        # the way tkinter works is by first creating an element such as label or button with root as the parent element
+        label = tk.Label(self.root, text="Press Start to begin tracking") 
+        # then the created elements are packed/ added to the window 
         label.pack(pady=10)
 
+        # Creates buttons and the methods run are the corresponding method names given to command parameter
+        # so th method set to command (in this case setStartTracking) will run when the Start button is pressed
         start_button = tk.Button(self.root, text="Start", command=self.setStartTracking)
         start_button.pack(pady=10)
 
@@ -44,6 +58,7 @@ class Gui:
         calibrationFrame = tk.Frame(self.root, padx=10, pady=10)
         calibrationFrame.pack(pady=10)
 
+        # creates a smaller frame inside for an arrow control panel for adjusting offsets for testing
         arrowFrame = tk.Frame(calibrationFrame, bg="lightgray", padx=10, pady=10)
         arrowFrame.pack(side=tk.RIGHT, pady=10)
 
@@ -52,6 +67,7 @@ class Gui:
         tk.Button(arrowFrame, text="up", command=self.moveUp).grid(column=1, row=0)
         tk.Button(arrowFrame, text="down", command=self.moveDown).grid(column=1, row=2)
 
+        # this frame contains the arrow frame and the buttons for settings offsets
         setFrame = tk.Frame(calibrationFrame, padx=10)
         setFrame.pack(side=tk.LEFT)
 
@@ -59,22 +75,28 @@ class Gui:
         tk.Button(setFrame, text="Set Offset For Y", command=self.setMaxY).pack(pady=5)
         tk.Button(setFrame, text="Center Servos", command=self.centerServos).pack(pady=5)
 
+
+    # this sets the tracking flag to true
     def setStartTracking(self):
         global tracking
         tracking = True
         print("start tracking")
 
+    # this sets the tracking flag to false
     def stopTracking(self):
         global tracking
         tracking = False
         print("stop tracking")
 
+    # this sets the quitApplication flag to true and then self.root.quit() ends the GUI loop
     def endProgram(self):
         global quitApplication
         quitApplication = True
         print("ending program")
         self.root.quit() 
 
+    # this method manually moves the servos in the corresponding direction by setting the servo value to 
+    # the current position plus or minus .1 value
     def moveLeft(self):
         global currentXServoPos
         currentXServoPos = max(-1, currentXServoPos - 0.1)
@@ -99,6 +121,7 @@ class Gui:
         yServo.value = currentYServoPos
         print(f"move down - Y servo: {currentYServoPos}")
 
+    # this doesn't rly fit in the context I will have to do some rework on this
     def setMaxX(self):
         global xOffset
         # Store current eye position as X offset
@@ -111,6 +134,7 @@ class Gui:
         yOffset = getattr(self, 'lastEyeY', 0)
         print(f"Set Y offset to: {yOffset}")
 
+    # this is to center the position of the servos when not tracking
     def centerServos(self):
         global currentXServoPos, currentYServoPos
         currentXServoPos = 0
@@ -119,41 +143,53 @@ class Gui:
         yServo.mid()
         print("Servos centered")
 
+    # this method starts the GUI loop IMPORTANT: once this is called the program thread will be locked in the loop
+    # this is why its important to start the other thread before calling this method
     def startGui(self):
         self.root.mainloop()
 
+# this method is going to be sent to the second thread to run the eye tracking code and send it to the servos over GPIO
 def trackEyes():
-    global currentXServoPos, currentYServoPos, tracking, quitApplication
+    global currentXServoPos, currentYServoPos # defines the global variables we will use to be global so we can edit them
     
+    # this sets up mediapipe for face mesh detection meaning it will apply a mesh to the detected face landmarks for better targetting
     mp_face_mesh = mp.solutions.face_mesh
+    # these are the coordinates of the face mesh for the left and right iris
     LEFT_IRIS = [474, 475, 476, 477]
     RIGHT_IRIS = [469, 470, 471, 472]
 
-    try: 
+    # this tries to initialize the camera capture (Important: if you are having issues try changing capture port from 0 to 1)
+    try:  
         cap = cv2.VideoCapture(0)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2000) # this just sets the width and the height of the video output frame 
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
     except Exception as e:
         print(f"Capture is not found: {e}")
         return
 
-    # Center the servos initially
-    xServo.mid()
-    yServo.mid()
+    # Center the servos initially before tracking starts
+    # xServo.mid()
+    # yServo.mid()
+
     
+    # gets the values for the height and width of the frame
+    h, w, _ = cap.read()[1].shape
+    print(f"Frame size: {w}x{h}")
+
+    # Calculate center of frame for reference
+    frame_center_x = w // 2
+    frame_center_y = h // 2
+    
+    # Initialize mediapipe face mesh with some parameters, refined landmarks just means it will have more accurate landmarks 
+    # and min_detection_confidence is the minimum confidence for detection to be considered valid 
     with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection_confidence=.5) as face_mesh:
+
+        # this is the second looped thread that will run the eye tracking code indefinetly until stopped 
         while cap.isOpened() and not quitApplication:
             success, frame = cap.read()
             if not success:
                 print("ERROR - Could not read capture")
                 break
-
-            frame = cv2.flip(frame, 1)
-            h, w, _ = frame.shape
-
-            # Calculate center of frame for reference
-            frame_center_x = w // 2
-            frame_center_y = h // 2
 
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = face_mesh.process(rgb)
@@ -206,8 +242,8 @@ def trackEyes():
                     currentYServoPos = max(-1, min(1, currentYServoPos))
                     
                     # Move servos
-                    xServo.value = currentXServoPos
-                    yServo.value = currentYServoPos
+                    # xServo.value = currentXServoPos
+                    # yServo.value = currentYServoPos
                     
                     print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Error: ({error_x}, {error_y}) Servo: ({currentXServoPos:.3f}, {currentYServoPos:.3f})")
 
@@ -224,15 +260,17 @@ def trackEyes():
     cap.release()
     cv2.destroyAllWindows()
 
+# This is the main entry point of the program it asks if this is was the page spawned if yes run the code 
 if __name__ == "__main__":
     # Start tracking in a separate thread
+    # this creates a thread to run the method trackEyes and daemon=True means it will stop if main thread stops (i.e. GUI is closed)
     trackingThread = threading.Thread(target=trackEyes, daemon=True)
-    trackingThread.start()
+    trackingThread.start() # must say start to start the thread running the method
     
-    # Start GUI in main thread
+    # Initialize and Start GUI in main thread
     gui = Gui()
     gui.startGui()
     
-    # Clean up
-    quitApplication = True
-    trackingThread.join(timeout=1.0)
+    # Clean up once gui is closed just some extra code if needed
+    # quitApplication = True
+    # trackingThread.join(timeout=1.0)
