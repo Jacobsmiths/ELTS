@@ -154,7 +154,7 @@ def trackEyes():
     
     # this sets up mediapipe for face mesh detection meaning it will apply a mesh to the detected face landmarks for better targetting
     mp_face_mesh = mp.solutions.face_mesh
-    # these are the coordinates of the face mesh for the left and right iris
+    # these are the coordinates of the face mesh for the left and right iris four for the top, bottom, left and right of the iris
     LEFT_IRIS = [474, 475, 476, 477]
     RIGHT_IRIS = [469, 470, 471, 472]
 
@@ -204,15 +204,18 @@ def trackEyes():
                 # get the results of the face mesh in mesh
                 mesh = results.multi_face_landmarks[0].landmark
 
-                # Gets the coordinates of the left and right eyes
+                # Gets the 4 pixel coordinates (top left right and bottom) of the left and right eyes
+                # breaking this down: p for p in _IRIS basically loops through the cords top right left bottom of iris
+                # mesh[].x / mesh[].y gives us coordinates from 0-1  relative to the screen
+                # meaning the screen is the first quadrant. We apply scale of frame width and height to get pixel coordinates
                 leftCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in LEFT_IRIS]
                 rightCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in RIGHT_IRIS]
 
-                # Calculate the center of the left and right eyes
+                # Calculate the center of the left and right eyes/ finds the middle of the 4 points for each eye
                 left_center = tuple(map(lambda x: sum(x) // len(x), zip(*leftCords)))
                 right_center = tuple(map(lambda x: sum(x) // len(x), zip(*rightCords)))
 
-                # Use the average of both eyes for more stable tracking 
+                # Use the average of both eyes for more stable tracking / between the two eyes
                 eye_center_x = (left_center[0] + right_center[0]) // 2
                 eye_center_y = (left_center[1] + right_center[1]) // 2
 
