@@ -1,7 +1,7 @@
 Welcome to the ELTS system code!
 Getting started:
 To install the code you can either clone git repo or you can just download the code and unzip the file.
-Next you will need to install the libraries, I would advise making an environment first and installing libraries there.https://github.com/Jacobsmiths/ELTS/blob/main/README.md
+Next you will need to install the libraries, I would advise making an environment first and installing libraries there.
 The reason for this is to keep an organized version of your libraries and your python, otherwise it can lead to a lot of out dated libraries and inability to run code.
 To make an environment in Python: 
   python3 -m venv env
