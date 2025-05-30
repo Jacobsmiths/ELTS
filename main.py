@@ -15,8 +15,8 @@ xServoPin = 27
 yServoPin = 17
 
 # we will be using gpiozeros servo class to control the servos with PWM
-# xServo = Servo(xServoPin)
-# yServo = Servo(yServoPin)
+xServo = Servo(xServoPin, min_pulse_widthmin_pulse_width=0.0005, max_pulse_width=0.0025)  # min and max pulse widths are found on the servos datasheet
+yServo = Servo(yServoPin, min_pulse_widthmin_pulse_width=0.0005, max_pulse_width=0.0025) 
 
 # Calibration offsets and servo positions used for testing
 xOffset = 0
@@ -168,8 +168,8 @@ def trackEyes():
         return
 
     # Center the servos initially before tracking starts
-    # xServo.mid()
-    # yServo.mid()
+    xServo.mid()
+    yServo.mid()
 
     
     # gets the values for the height and width of the frame
@@ -180,29 +180,39 @@ def trackEyes():
     frame_center_x = w // 2
     frame_center_y = h // 2
     
-    # Initialize mediapipe face mesh with some parameters, refined landmarks just means it will have more accurate landmarks 
+    # Initialize mediapipe as a context with some parameters, refined landmarks just means it will have more accurate landmarks 
     # and min_detection_confidence is the minimum confidence for detection to be considered valid 
-    with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection_confidence=.5) as face_mesh:
+    with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection_confidence=.5, min_tracking_confidence=0.5) as face_mesh:
 
         # this is the second looped thread that will run the eye tracking code indefinetly until stopped 
+        # basically saying while the camera feed is on and the quitApplication flag is not set
         while cap.isOpened() and not quitApplication:
+
+            # Read current frame, if not break the loop (for when camera gets disconnected)
             success, frame = cap.read()
             if not success:
                 print("ERROR - Could not read capture")
                 break
 
+            # This converts the frame from BGR to RGB for mediapipe processing
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # This runs the current frmae through mediapipe face mesh model
             results = face_mesh.process(rgb)
 
-            if results.multi_face_landmarks:
+            if results.multi_face_landmarks: # if face detected
+                # get the results of the face mesh in mesh
                 mesh = results.multi_face_landmarks[0].landmark
+
+                # Gets the coordinates of the left and right eyes
                 leftCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in LEFT_IRIS]
                 rightCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in RIGHT_IRIS]
 
+                # Calculate the center of the left and right eyes
                 left_center = tuple(map(lambda x: sum(x) // len(x), zip(*leftCords)))
                 right_center = tuple(map(lambda x: sum(x) // len(x), zip(*rightCords)))
 
-                # Use the average of both eyes for more stable tracking
+                # Use the average of both eyes for more stable tracking 
                 eye_center_x = (left_center[0] + right_center[0]) // 2
                 eye_center_y = (left_center[1] + right_center[1]) // 2
 
@@ -216,7 +226,7 @@ def trackEyes():
                 cv2.circle(frame, (eye_center_x, eye_center_y), 5, (255, 0, 0), 2)
                 cv2.circle(frame, (target_x, target_y), 7, (0, 0, 255), 2)
                 
-                # Draw crosshairs at frame center
+                # Draw crosshairs at frame center (for reference)
                 cv2.line(frame, (frame_center_x - 20, frame_center_y), (frame_center_x + 20, frame_center_y), (255, 255, 255), 1)
                 cv2.line(frame, (frame_center_x, frame_center_y - 20), (frame_center_x, frame_center_y + 20), (255, 255, 255), 1)
 
@@ -242,8 +252,8 @@ def trackEyes():
                     currentYServoPos = max(-1, min(1, currentYServoPos))
                     
                     # Move servos
-                    # xServo.value = currentXServoPos
-                    # yServo.value = currentYServoPos
+                    xServo.value = currentXServoPos
+                    yServo.value = currentYServoPos
                     
                     print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Error: ({error_x}, {error_y}) Servo: ({currentXServoPos:.3f}, {currentYServoPos:.3f})")
 
@@ -251,11 +261,9 @@ def trackEyes():
                 gui.lastEyeX = eye_center_x
                 gui.lastEyeY = eye_center_y
 
+            # This displays current frame from camera
             cv2.imshow("Eye Tracker", frame)
             
-            # Small delay to prevent excessive CPU usage
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
 
     cap.release()
     cv2.destroyAllWindows()
