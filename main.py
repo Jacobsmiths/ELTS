@@ -17,8 +17,8 @@ xServoPin = 27
 yServoPin = 17
 
 # we will be using gpiozeros servo class to control the servos with PWM
-xServo = Servo(xServoPin, min_pulse_widthmin_pulse_width=0.0005, max_pulse_width=0.0025)  # min and max pulse widths are found on the servos datasheet
-yServo = Servo(yServoPin, min_pulse_widthmin_pulse_width=0.0005, max_pulse_width=0.0025) 
+# xServo = Servo(xServoPin, min_pulse_widthmin_pulse_width=0.0005, max_pulse_width=0.0025)  # min and max pulse widths are found on the servos datasheet
+# yServo = Servo(yServoPin, min_pulse_widthmin_pulse_width=0.0005, max_pulse_width=0.0025) 
 
 # Calibration offsets and servo positions used for testing
 xOffset = 0
@@ -177,8 +177,8 @@ def trackEyes():
             return
 
         # Center the servos initially before tracking starts
-        xServo.mid()
-        yServo.mid()
+        # xServo.mid()
+        # yServo.mid()
 
         
         # gets the values for the height and width of the frame
@@ -243,8 +243,8 @@ def trackEyes():
                     cv2.line(frame, (frame_center_x, frame_center_y - 20), (frame_center_x, frame_center_y + 20), (255, 255, 255), 1)
 
                     if tracking:
-                        writeRow({"time":time.time()-startTime, "x": eye_center_x,"y": eye_center_y})
-
+                        writer.writerow({"time":time.time()-startTime, "x": eye_center_x,"y": eye_center_y})
+                        csvfile.flush()
                         # Calculate error from center
                         error_x = target_x - frame_center_x
                         error_y = target_y - frame_center_y
@@ -266,8 +266,8 @@ def trackEyes():
                         currentYServoPos = max(-1, min(1, currentYServoPos))
                         
                         # Move servos
-                        xServo.value = currentXServoPos
-                        yServo.value = currentYServoPos
+                        # xServo.value = currentXServoPos
+                        # yServo.value = currentYServoPos
                         
                         print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Error: ({error_x}, {error_y}) Servo: ({currentXServoPos:.3f}, {currentYServoPos:.3f})")
 
