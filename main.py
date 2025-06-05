@@ -4,6 +4,8 @@ import threading
 import cv2
 import mediapipe as mp
 from gpiozero import Servo
+import csv
+import time
 
 # defines global variables we will use
 # these are flags to control the application state
@@ -151,121 +153,130 @@ class Gui:
 # this method is going to be sent to the second thread to run the eye tracking code and send it to the servos over GPIO
 def trackEyes():
     global currentXServoPos, currentYServoPos # defines the global variables we will use to be global so we can edit them
+
+    startTime = time.time()
     
-    # this sets up mediapipe for face mesh detection meaning it will apply a mesh to the detected face landmarks for better targetting
-    mp_face_mesh = mp.solutions.face_mesh
-    # these are the coordinates of the face mesh for the left and right iris four for the top, bottom, left and right of the iris
-    LEFT_IRIS = [474, 475, 476, 477]
-    RIGHT_IRIS = [469, 470, 471, 472]
+    with open('data.csv', 'w', newline='') as csvfile:
+        fieldnames=['time', 'x', 'y']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
 
-    # this tries to initialize the camera capture (Important: if you are having issues try changing capture port from 0 to 1)
-    try:  
-        cap = cv2.VideoCapture(0)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2000) # this just sets the width and the height of the video output frame 
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
-    except Exception as e:
-        print(f"Capture is not found: {e}")
-        return
+        # this sets up mediapipe for face mesh detection meaning it will apply a mesh to the detected face landmarks for better targetting
+        mp_face_mesh = mp.solutions.face_mesh
+        # these are the coordinates of the face mesh for the left and right iris four for the top, bottom, left and right of the iris
+        LEFT_IRIS = [474, 475, 476, 477]
+        RIGHT_IRIS = [469, 470, 471, 472]
 
-    # Center the servos initially before tracking starts
-    xServo.mid()
-    yServo.mid()
+        # this tries to initialize the camera capture (Important: if you are having issues try changing capture port from 0 to 1)
+        try:  
+            cap = cv2.VideoCapture(0)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2000) # this just sets the width and the height of the video output frame 
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+        except Exception as e:
+            print(f"Capture is not found: {e}")
+            return
 
-    
-    # gets the values for the height and width of the frame
-    h, w, _ = cap.read()[1].shape
-    print(f"Frame size: {w}x{h}")
+        # Center the servos initially before tracking starts
+        xServo.mid()
+        yServo.mid()
 
-    # Calculate center of frame for reference
-    frame_center_x = w // 2
-    frame_center_y = h // 2
-    
-    # Initialize mediapipe as a context with some parameters, refined landmarks just means it will have more accurate landmarks 
-    # and min_detection_confidence is the minimum confidence for detection to be considered valid 
-    with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection_confidence=.5, min_tracking_confidence=0.5) as face_mesh:
+        
+        # gets the values for the height and width of the frame
+        h, w, _ = cap.read()[1].shape
+        print(f"Frame size: {w}x{h}")
 
-        # this is the second looped thread that will run the eye tracking code indefinetly until stopped 
-        # basically saying while the camera feed is on and the quitApplication flag is not set
-        while cap.isOpened() and not quitApplication:
+        # Calculate center of frame for reference
+        frame_center_x = w // 2
+        frame_center_y = h // 2
+        
+        # Initialize mediapipe as a context with some parameters, refined landmarks just means it will have more accurate landmarks 
+        # and min_detection_confidence is the minimum confidence for detection to be considered valid 
+        with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection_confidence=.5, min_tracking_confidence=0.5) as face_mesh:
 
-            # Read current frame, if not break the loop (for when camera gets disconnected)
-            success, frame = cap.read()
-            if not success:
-                print("ERROR - Could not read capture")
-                break
+            # this is the second looped thread that will run the eye tracking code indefinetly until stopped 
+            # basically saying while the camera feed is on and the quitApplication flag is not set
+            while cap.isOpened() and not quitApplication:
 
-            # This converts the frame from BGR to RGB for mediapipe processing
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # This runs the current frmae through mediapipe face mesh model
-            results = face_mesh.process(rgb)
+                # Read current frame, if not break the loop (for when camera gets disconnected)
+                success, frame = cap.read()
+                if not success:
+                    print("ERROR - Could not read capture")
+                    break
 
-            if results.multi_face_landmarks: # if face detected
-                # get the results of the face mesh in mesh
-                mesh = results.multi_face_landmarks[0].landmark
-
-                # Gets the 4 pixel coordinates (top left right and bottom) of the left and right eyes
-                # breaking this down: p for p in _IRIS basically loops through the cords top right left bottom of iris
-                # mesh[].x / mesh[].y gives us coordinates from 0-1  relative to the screen
-                # meaning the screen is the first quadrant. We apply scale of frame width and height to get pixel coordinates
-                leftCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in LEFT_IRIS]
-                rightCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in RIGHT_IRIS]
-
-                # Calculate the center of the left and right eyes/ finds the middle of the 4 points for each eye
-                left_center = tuple(map(lambda x: sum(x) // len(x), zip(*leftCords)))
-                right_center = tuple(map(lambda x: sum(x) // len(x), zip(*rightCords)))
-
-                # Use the average of both eyes for more stable tracking / between the two eyes
-                eye_center_x = (left_center[0] + right_center[0]) // 2
-                eye_center_y = (left_center[1] + right_center[1]) // 2
-
-                # Apply offsets
-                target_x = eye_center_x + xOffset
-                target_y = eye_center_y + yOffset
-
-                # Draw tracking indicators
-                cv2.circle(frame, left_center, 3, (0, 255, 0), -1)
-                cv2.circle(frame, right_center, 3, (0, 255, 0), -1)
-                cv2.circle(frame, (eye_center_x, eye_center_y), 5, (255, 0, 0), 2)
-                cv2.circle(frame, (target_x, target_y), 7, (0, 0, 255), 2)
+                # This converts the frame from BGR to RGB for mediapipe processing
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 
-                # Draw crosshairs at frame center (for reference)
-                cv2.line(frame, (frame_center_x - 20, frame_center_y), (frame_center_x + 20, frame_center_y), (255, 255, 255), 1)
-                cv2.line(frame, (frame_center_x, frame_center_y - 20), (frame_center_x, frame_center_y + 20), (255, 255, 255), 1)
+                # This runs the current frmae through mediapipe face mesh model
+                results = face_mesh.process(rgb)
 
-                if tracking:
-                    # Calculate error from center
-                    error_x = target_x - frame_center_x
-                    error_y = target_y - frame_center_y
-                    
-                    # Calculate servo adjustments (invert X if needed based on your servo orientation)
-                    servo_adjust_x = error_x * TRACKING_SENSITIVITY_X
-                    servo_adjust_y = error_y * TRACKING_SENSITIVITY_Y
-                    
-                    # Apply smoothing and update servo positions
-                    new_x_pos = currentXServoPos + servo_adjust_x
-                    new_y_pos = currentYServoPos + servo_adjust_y
-                    
-                    # Smooth the movement
-                    currentXServoPos = currentXServoPos * SERVO_SMOOTHING + new_x_pos * (1 - SERVO_SMOOTHING)
-                    currentYServoPos = currentYServoPos * SERVO_SMOOTHING + new_y_pos * (1 - SERVO_SMOOTHING)
-                    
-                    # Clamp to servo limits
-                    currentXServoPos = max(-1, min(1, currentXServoPos))
-                    currentYServoPos = max(-1, min(1, currentYServoPos))
-                    
-                    # Move servos
-                    xServo.value = currentXServoPos
-                    yServo.value = currentYServoPos
-                    
-                    print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Error: ({error_x}, {error_y}) Servo: ({currentXServoPos:.3f}, {currentYServoPos:.3f})")
+                if results.multi_face_landmarks: # if face detected
+                    # get the results of the face mesh in mesh
+                    mesh = results.multi_face_landmarks[0].landmark
 
-                # Store last eye position for offset calibration
-                gui.lastEyeX = eye_center_x
-                gui.lastEyeY = eye_center_y
+                    # Gets the 4 pixel coordinates (top left right and bottom) of the left and right eyes
+                    # breaking this down: p for p in _IRIS basically loops through the cords top right left bottom of iris
+                    # mesh[].x / mesh[].y gives us coordinates from 0-1  relative to the screen
+                    # meaning the screen is the first quadrant. We apply scale of frame width and height to get pixel coordinates
+                    leftCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in LEFT_IRIS]
+                    rightCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in RIGHT_IRIS]
 
-            # This displays current frame from camera
-            cv2.imshow("Eye Tracker", frame)
+                    # Calculate the center of the left and right eyes/ finds the middle of the 4 points for each eye
+                    left_center = tuple(map(lambda x: sum(x) // len(x), zip(*leftCords)))
+                    right_center = tuple(map(lambda x: sum(x) // len(x), zip(*rightCords)))
+
+                    # Use the average of both eyes for more stable tracking / between the two eyes
+                    eye_center_x = (left_center[0] + right_center[0]) // 2
+                    eye_center_y = (left_center[1] + right_center[1]) // 2
+
+                    # Apply offsets
+                    target_x = eye_center_x + xOffset
+                    target_y = eye_center_y + yOffset
+
+                    # Draw tracking indicators
+                    cv2.circle(frame, left_center, 3, (0, 255, 0), -1)
+                    cv2.circle(frame, right_center, 3, (0, 255, 0), -1)
+                    cv2.circle(frame, (eye_center_x, eye_center_y), 5, (255, 0, 0), 2)
+                    cv2.circle(frame, (target_x, target_y), 7, (0, 0, 255), 2)
+                    
+                    # Draw crosshairs at frame center (for reference)
+                    cv2.line(frame, (frame_center_x - 20, frame_center_y), (frame_center_x + 20, frame_center_y), (255, 255, 255), 1)
+                    cv2.line(frame, (frame_center_x, frame_center_y - 20), (frame_center_x, frame_center_y + 20), (255, 255, 255), 1)
+
+                    if tracking:
+                        writeRow({"time":time.time()-startTime, "x": eye_center_x,"y": eye_center_y})
+
+                        # Calculate error from center
+                        error_x = target_x - frame_center_x
+                        error_y = target_y - frame_center_y
+                        
+                        # Calculate servo adjustments (invert X if needed based on your servo orientation)
+                        servo_adjust_x = error_x * TRACKING_SENSITIVITY_X
+                        servo_adjust_y = error_y * TRACKING_SENSITIVITY_Y
+                        
+                        # Apply smoothing and update servo positions
+                        new_x_pos = currentXServoPos + servo_adjust_x
+                        new_y_pos = currentYServoPos + servo_adjust_y
+                        
+                        # Smooth the movement
+                        currentXServoPos = currentXServoPos * SERVO_SMOOTHING + new_x_pos * (1 - SERVO_SMOOTHING)
+                        currentYServoPos = currentYServoPos * SERVO_SMOOTHING + new_y_pos * (1 - SERVO_SMOOTHING)
+                        
+                        # Clamp to servo limits
+                        currentXServoPos = max(-1, min(1, currentXServoPos))
+                        currentYServoPos = max(-1, min(1, currentYServoPos))
+                        
+                        # Move servos
+                        xServo.value = currentXServoPos
+                        yServo.value = currentYServoPos
+                        
+                        print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Error: ({error_x}, {error_y}) Servo: ({currentXServoPos:.3f}, {currentYServoPos:.3f})")
+
+                    # Store last eye position for offset calibration
+                    gui.lastEyeX = eye_center_x
+                    gui.lastEyeY = eye_center_y
+
+                # This displays current frame from camera
+                cv2.imshow("Eye Tracker", frame)
             
 
     cap.release()
