@@ -17,8 +17,8 @@ xServoPin = 27
 yServoPin = 17
 
 # we will be using gpiozeros servo class to control the servos with PWM
-# xServo = Servo(xServoPin, min_pulse_widthmin_pulse_width=0.0005, max_pulse_width=0.0025)  # min and max pulse widths are found on the servos datasheet
-# yServo = Servo(yServoPin, min_pulse_widthmin_pulse_width=0.0005, max_pulse_width=0.0025) 
+# xServo = Servo(xServoPin, min_pulse_width=0.0005, max_pulse_width=0.0025)  # min and max pulse widths are found on the servos datasheet
+# yServo = Servo(yServoPin, min_pulse_width=0.0005, max_pulse_width=0.0025) 
 
 # Calibration offsets and servo positions used for testing
 xOffset = 0
@@ -77,7 +77,6 @@ class Gui:
         tk.Button(setFrame, text="Set Offset For Y", command=self.setMaxY).pack(pady=5)
         tk.Button(setFrame, text="Center Servos", command=self.centerServos).pack(pady=5)
 
-
     # this sets the tracking flag to true
     def setStartTracking(self):
         global tracking
@@ -102,28 +101,27 @@ class Gui:
     def moveLeft(self):
         global currentXServoPos
         currentXServoPos = max(-1, currentXServoPos - 0.1)
-        xServo.value = currentXServoPos
+        # xServo.value = currentXServoPos
         print(f"move left - X servo: {currentXServoPos}")
 
     def moveRight(self):
         global currentXServoPos
         currentXServoPos = min(1, currentXServoPos + 0.1)
-        xServo.value = currentXServoPos
+        # xServo.value = currentXServoPos
         print(f"move right - X servo: {currentXServoPos}")
 
     def moveUp(self):
         global currentYServoPos
         currentYServoPos = max(-1, currentYServoPos - 0.1)
-        yServo.value = currentYServoPos
+        # yServo.value = currentYServoPos
         print(f"move up - Y servo: {currentYServoPos}")
 
     def moveDown(self):
         global currentYServoPos
         currentYServoPos = min(1, currentYServoPos + 0.1)
-        yServo.value = currentYServoPos
+        # yServo.value = currentYServoPos
         print(f"move down - Y servo: {currentYServoPos}")
 
-    # this doesn't rly fit in the context I will have to do some rework on this
     def setMaxX(self):
         global xOffset
         # Store current eye position as X offset
@@ -141,8 +139,8 @@ class Gui:
         global currentXServoPos, currentYServoPos
         currentXServoPos = 0
         currentYServoPos = 0
-        xServo.mid()
-        yServo.mid()
+        # xServo.mid()
+        # yServo.mid()
         print("Servos centered")
 
     # this method starts the GUI loop IMPORTANT: once this is called the program thread will be locked in the loop
@@ -167,64 +165,96 @@ def trackEyes():
         LEFT_IRIS = [474, 475, 476, 477]
         RIGHT_IRIS = [469, 470, 471, 472]
 
-        # this tries to initialize the camera capture (Important: if you are having issues try changing capture port from 0 to 1)
-        try:  
-            cap = cv2.VideoCapture(0)
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2000) # this just sets the width and the height of the video output frame 
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
-        except Exception as e:
-            print(f"Capture is not found: {e}")
+        # Try multiple camera indices and backends for better compatibility
+        cap = None
+        for camera_index in [0, 1, 2]:
+            try:
+                print(f"Trying camera index {camera_index}...")
+                cap = cv2.VideoCapture(camera_index)
+                
+                # Test if camera is working by reading a frame
+                ret, test_frame = cap.read()
+                if ret and test_frame is not None:
+                    print(f"Successfully connected to camera {camera_index}")
+                    break
+                else:
+                    cap.release()
+                    cap = None
+            except Exception as e:
+                print(f"Camera index {camera_index} failed: {e}")
+                if cap:
+                    cap.release()
+                cap = None
+        
+        if cap is None:
+            print("ERROR: No working camera found!")
             return
 
-        # Center the servos initially before tracking starts
-        # xServo.mid()
-        # yServo.mid()
-
+        # Optimize camera settings for better performance
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)  # Reduced resolution for better performance
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)  # Set FPS
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer size to avoid lag
         
-        # gets the values for the height and width of the frame
-        h, w, _ = cap.read()[1].shape
-        print(f"Frame size: {w}x{h}")
+        # Check if settings were applied
+        actual_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        actual_fps = cap.get(cv2.CAP_PROP_FPS)
+        print(f"Camera settings - Width: {actual_width}, Height: {actual_height}, FPS: {actual_fps}")
 
-        # Calculate center of frame for reference
-        frame_center_x = w // 2
-        frame_center_y = h // 2
-        
-        # Initialize mediapipe as a context with some parameters, refined landmarks just means it will have more accurate landmarks 
-        # and min_detection_confidence is the minimum confidence for detection to be considered valid 
-        with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection_confidence=.5, min_tracking_confidence=0.5) as face_mesh:
+        # Initialize mediapipe with optimized settings for better performance
+        with mp_face_mesh.FaceMesh(
+            max_num_faces=1, 
+            refine_landmarks=True, 
+            min_detection_confidence=0.7,  # Increased for better stability
+            min_tracking_confidence=0.5
+        ) as face_mesh:
 
-            # this is the second looped thread that will run the eye tracking code indefinetly until stopped 
-            # basically saying while the camera feed is on and the quitApplication flag is not set
+            frame_count = 0
+            fps_start_time = time.time()
+            
+            # this is the second looped thread that will run the eye tracking code indefinitely until stopped 
             while cap.isOpened() and not quitApplication:
-
-                # Read current frame, if not break the loop (for when camera gets disconnected)
+                
+                # Read current frame
                 success, frame = cap.read()
                 if not success:
-                    print("ERROR - Could not read capture")
-                    break
-
-                # This converts the frame from BGR to RGB for mediapipe processing
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    print("ERROR - Could not read frame from camera")
+                    continue  # Try next frame instead of breaking
                 
-                # This runs the current frmae through mediapipe face mesh model
-                results = face_mesh.process(rgb)
+                # Flip frame horizontally for mirror effect (more intuitive)
+                frame = cv2.flip(frame, 1)
+                
+                # Get frame dimensions
+                h, w, _ = frame.shape
+                
+                # Calculate center of frame for reference
+                frame_center_x = w // 2
+                frame_center_y = h // 2
 
-                if results.multi_face_landmarks: # if face detected
-                    # get the results of the face mesh in mesh
+                # Process every frame but only do heavy processing when needed
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                rgb.flags.writeable = False  # Improve performance
+                
+                # Run mediapipe face mesh
+                results = face_mesh.process(rgb)
+                
+                # Make frame writeable again for drawing
+                rgb.flags.writeable = True
+
+                if results.multi_face_landmarks:
+                    # Get the face mesh landmarks
                     mesh = results.multi_face_landmarks[0].landmark
 
-                    # Gets the 4 pixel coordinates (top left right and bottom) of the left and right eyes
-                    # breaking this down: p for p in _IRIS basically loops through the cords top right left bottom of iris
-                    # mesh[].x / mesh[].y gives us coordinates from 0-1  relative to the screen
-                    # meaning the screen is the first quadrant. We apply scale of frame width and height to get pixel coordinates
+                    # Get iris coordinates for both eyes
                     leftCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in LEFT_IRIS]
                     rightCords = [(int(mesh[p].x * w), int(mesh[p].y * h)) for p in RIGHT_IRIS]
 
-                    # Calculate the center of the left and right eyes/ finds the middle of the 4 points for each eye
+                    # Calculate eye centers
                     left_center = tuple(map(lambda x: sum(x) // len(x), zip(*leftCords)))
                     right_center = tuple(map(lambda x: sum(x) // len(x), zip(*rightCords)))
 
-                    # Use the average of both eyes for more stable tracking / between the two eyes
+                    # Average of both eyes for stable tracking
                     eye_center_x = (left_center[0] + right_center[0]) // 2
                     eye_center_y = (left_center[1] + right_center[1]) // 2
 
@@ -238,18 +268,20 @@ def trackEyes():
                     cv2.circle(frame, (eye_center_x, eye_center_y), 5, (255, 0, 0), 2)
                     cv2.circle(frame, (target_x, target_y), 7, (0, 0, 255), 2)
                     
-                    # Draw crosshairs at frame center (for reference)
-                    cv2.line(frame, (frame_center_x - 20, frame_center_y), (frame_center_x + 20, frame_center_y), (255, 255, 255), 1)
-                    cv2.line(frame, (frame_center_x, frame_center_y - 20), (frame_center_x, frame_center_y + 20), (255, 255, 255), 1)
+                    # Draw crosshairs at frame center
+                    cv2.line(frame, (frame_center_x - 20, frame_center_y), (frame_center_x + 20, frame_center_y), (255, 255, 255), 2)
+                    cv2.line(frame, (frame_center_x, frame_center_y - 20), (frame_center_x, frame_center_y + 20), (255, 255, 255), 2)
 
                     if tracking:
-                        writer.writerow({"time":time.time()-startTime, "x": eye_center_x,"y": eye_center_y})
+                        # Log data to CSV
+                        writer.writerow({"time": time.time() - startTime, "x": eye_center_x, "y": eye_center_y})
                         csvfile.flush()
+                        
                         # Calculate error from center
                         error_x = target_x - frame_center_x
                         error_y = target_y - frame_center_y
                         
-                        # Calculate servo adjustments (invert X if needed based on your servo orientation)
+                        # Calculate servo adjustments
                         servo_adjust_x = error_x * TRACKING_SENSITIVITY_X
                         servo_adjust_y = error_y * TRACKING_SENSITIVITY_Y
                         
@@ -265,34 +297,59 @@ def trackEyes():
                         currentXServoPos = max(-1, min(1, currentXServoPos))
                         currentYServoPos = max(-1, min(1, currentYServoPos))
                         
-                        # Move servos
+                        # Move servos (uncomment when servos are connected)
                         # xServo.value = currentXServoPos
                         # yServo.value = currentYServoPos
+                        
+                        # Add tracking status to frame
+                        cv2.putText(frame, "TRACKING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        cv2.putText(frame, f"Servo X: {currentXServoPos:.3f}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(frame, f"Servo Y: {currentYServoPos:.3f}", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         
                         print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Error: ({error_x}, {error_y}) Servo: ({currentXServoPos:.3f}, {currentYServoPos:.3f})")
 
                     # Store last eye position for offset calibration
-                    gui.lastEyeX = eye_center_x
-                    gui.lastEyeY = eye_center_y
+                    if hasattr(gui, 'lastEyeX'):
+                        gui.lastEyeX = eye_center_x
+                        gui.lastEyeY = eye_center_y
 
-                # This displays current frame from camera
+                else:
+                    # No face detected
+                    cv2.putText(frame, "NO FACE DETECTED", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+                # Calculate and display FPS
+                frame_count += 1
+                if frame_count % 30 == 0:  # Update FPS every 30 frames
+                    fps_end_time = time.time()
+                    fps = 30 / (fps_end_time - fps_start_time)
+                    fps_start_time = fps_end_time
+                    print(f"FPS: {fps:.1f}")
+
+                # Display FPS on frame
+                cv2.putText(frame, f"FPS: {cap.get(cv2.CAP_PROP_FPS):.1f}", (w-150, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+                # Display the frame
                 cv2.imshow("Eye Tracker", frame)
-            
+                
+                # Check for 'q' key press to quit (optional manual exit)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
-    cap.release()
+    # Cleanup
+    if cap:
+        cap.release()
     cv2.destroyAllWindows()
+    print("Camera and windows cleaned up")
 
-# This is the main entry point of the program it asks if this is was the page spawned if yes run the code 
+# This is the main entry point of the program
 if __name__ == "__main__":
     # Start tracking in a separate thread
-    # this creates a thread to run the method trackEyes and daemon=True means it will stop if main thread stops (i.e. GUI is closed)
     trackingThread = threading.Thread(target=trackEyes, daemon=True)
-    trackingThread.start() # must say start to start the thread running the method
+    trackingThread.start()
     
     # Initialize and Start GUI in main thread
     gui = Gui()
     gui.startGui()
     
-    # Clean up once gui is closed just some extra code if needed
-    # quitApplication = True
-    # trackingThread.join(timeout=1.0)
+    # Clean up once gui is closed
+    print("Program ended")
