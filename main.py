@@ -13,12 +13,12 @@ quitApplication = False
 tracking = False
 
 # these are the GPIO pins for the servos (To do: change these to your actual GPIO pins)
-xServoPin = 27
-yServoPin = 17
+xServoPin = 12
+yServoPin = 13
 
 # we will be using gpiozeros servo class to control the servos with PWM
-# xServo = Servo(xServoPin, min_pulse_width=0.0005, max_pulse_width=0.0025)  # min and max pulse widths are found on the servos datasheet
-# yServo = Servo(yServoPin, min_pulse_width=0.0005, max_pulse_width=0.0025) 
+xServo = Servo(xServoPin, min_pulse_width=0.0005, max_pulse_width=0.0025)  # min and max pulse widths are found on the servos datasheet
+yServo = Servo(yServoPin, min_pulse_width=0.0005, max_pulse_width=0.0025) 
 
 # Calibration offsets and servo positions used for testing
 xOffset = 0
