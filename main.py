@@ -13,12 +13,12 @@ quitApplication = False
 tracking = False
 
 # these are the GPIO pins for the servos (To do: change these to your actual GPIO pins)
-xServoPin = 12
-yServoPin = 13
+xServoPin = 13
+yServoPin = 12
 
 # we will be using gpiozeros servo class to control the servos with PWM
-xServo = Servo(xServoPin, min_pulse_width=0.0005, max_pulse_width=0.0025)  # min and max pulse widths are found on the servos datasheet
-yServo = Servo(yServoPin, min_pulse_width=0.0005, max_pulse_width=0.0025) 
+xServo = Servo(xServoPin, min_pulse_width=0.0005, max_pulse_width=0.00245)  # min and max pulse widths are found on the servos datasheet
+yServo = Servo(yServoPin, min_pulse_width=0.0005, max_pulse_width=0.00245) 
 
 # Calibration offsets and servo positions used for testing
 xOffset = 0
@@ -306,7 +306,7 @@ def trackEyes():
                         cv2.putText(frame, f"Servo X: {currentXServoPos:.3f}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         cv2.putText(frame, f"Servo Y: {currentYServoPos:.3f}", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         
-                        print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Error: ({error_x}, {error_y}) Servo: ({currentXServoPos:.3f}, {currentYServoPos:.3f})")
+                        print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Error: ({error_x}, {error_y}) Servo: ({currentXServoPos}, {currentYServoPos})")
 
                     # Store last eye position for offset calibration
                     if hasattr(gui, 'lastEyeX'):
