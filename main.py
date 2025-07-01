@@ -139,8 +139,8 @@ class Gui:
         global currentXServoPos, currentYServoPos
         currentXServoPos = 0
         currentYServoPos = 0
-        # xServo.mid()
-        # yServo.mid()
+        xServo.mid()
+        yServo.mid()
         print("Servos centered")
 
     # this method starts the GUI loop IMPORTANT: once this is called the program thread will be locked in the loop
@@ -298,8 +298,8 @@ def trackEyes():
                         currentYServoPos = max(-1, min(1, currentYServoPos))
                         
                         # Move servos (uncomment when servos are connected)
-                        # xServo.value = currentXServoPos
-                        # yServo.value = currentYServoPos
+                        xServo.value = currentXServoPos
+                        yServo.value = currentYServoPos
                         
                         # Add tracking status to frame
                         cv2.putText(frame, "TRACKING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -318,15 +318,15 @@ def trackEyes():
                     cv2.putText(frame, "NO FACE DETECTED", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
                 # Calculate and display FPS
-                frame_count += 1
-                if frame_count % 30 == 0:  # Update FPS every 30 frames
-                    fps_end_time = time.time()
-                    fps = 30 / (fps_end_time - fps_start_time)
-                    fps_start_time = fps_end_time
-                    print(f"FPS: {fps:.1f}")
+                # frame_count += 1
+                # if frame_count % 30 == 0:  # Update FPS every 30 frames
+                #     fps_end_time = time.time()
+                #     fps = 30 / (fps_end_time - fps_start_time)
+                #     fps_start_time = fps_end_time
+                #     print(f"FPS: {fps:.1f}")
 
-                # Display FPS on frame
-                cv2.putText(frame, f"FPS: {cap.get(cv2.CAP_PROP_FPS):.1f}", (w-150, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                # # Display FPS on frame
+                # cv2.putText(frame, f"FPS: {cap.get(cv2.CAP_PROP_FPS):.1f}", (w-150, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
                 # Display the frame
                 cv2.imshow("Eye Tracker", frame)
