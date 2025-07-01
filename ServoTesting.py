@@ -1,4 +1,4 @@
-import tkinter as tk
+import timer
 from gpiozero import Servo
 from gpiozero.pins.pigpio import PiGPIOFactory
 
@@ -12,27 +12,28 @@ Servo.pin_factory=PiGPIOFactory('127.0.0.1')
 servo = Servo(pin =xServoPin, min_pulse_width=0.0005, max_pulse_width=0.0025)  # min and max pulse widths are found on the servos datasheet
 servo.min()
 
-# pos = tk.IntVar(value=servo.value)
+positions = ["min", "mid" , "max"]
+current = 0
+
+class MyThread(Thread):
+    def __init__(self, event):
+        Thread.__init__(self)
+        self.stopped = event
+
+    def switchPos(self):
+        current = (current+1)%3
+        if(positions[current]=="min"):
+            servo.min()
+        elif(posiitons[current]=="mid"):
+            servo.mid()
+        else:
+            servo.max()
+
+    def run(self):
+        while not self.stopped.wait(3):
+            self.switchPos()
 
 
-def setServoUp():
-    servo.max()
-    # pos+=0.1
-
-def setServoDown():
-    servo.min()
-       # pos-=0.01
-
-
-root = tk.Tk()
-root.title("Tester") 
-up_button = tk.Button(root, text="Up", command=setServoUp)
-up_button.pack(pady=10)
-
-down_button = tk.Button(root, text="Down", command=setServoDown)
-down_button.pack(pady=10)
-
-# servo_pos = tk.Label(root, text=pos)
-
-
-root.mainloop()
+stopFlag = Event()
+thread = MyThread(stopFlag)
+thread.start()
