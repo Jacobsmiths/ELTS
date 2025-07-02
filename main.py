@@ -19,7 +19,7 @@ yServoPin = 12
 
 TRACKING_SENSITIVITY_X = 0.002  # How much to move servo per pixel difference
 TRACKING_SENSITIVITY_Y = 0.002
-SERVO_SMOOTHING = 0.7  # Smoothing factor (0-1, higher = smoother but slower)
+SERVO_SMOOTHING = 0.9  # Smoothing factor (0-1, higher = smoother but slower)
 
 
 # we will be using gpiozeros servo class to control the servos with PWM
