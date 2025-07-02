@@ -23,14 +23,9 @@ yServo = Servo(yServoPin, min_pulse_width=0.0005, max_pulse_width=0.00245)
 # Calibration offsets and servo positions used for testing
 xOffset = 0
 yOffset = 0
+# the idea is that we will get the width and height of the camera view and map that to -1 to 1 for both the y and x axis
 currentXServoPos = 0  # Range from -1 to 1
 currentYServoPos = 0  # Range from -1 to 1
-
-# Tracking sensitivity (adjust these values to fine-tune responsiveness)
-# used in a make shift PID controller essentially for improved tracking
-TRACKING_SENSITIVITY_X = 0.002  # How much to move servo per pixel difference
-TRACKING_SENSITIVITY_Y = 0.002
-SERVO_SMOOTHING = 0.7  # Smoothing factor (0-1, higher = smoother but slower)
 
 # this is the GUI class using tkinter library documentation can be found at https://docs.python.org/3/library/tk.html
 class Gui:
@@ -189,18 +184,20 @@ def trackEyes():
         if cap is None:
             print("ERROR: No working camera found!")
             return
-
-        # Optimize camera settings for better performance
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)  # Reduced resolution for better performance
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        cap.set(cv2.CAP_PROP_FPS, 30)  # Set FPS
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer size to avoid lag
         
-        # Check if settings were applied
-        actual_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        actual_fps = cap.get(cv2.CAP_PROP_FPS)
-        print(f"Camera settings - Width: {actual_width}, Height: {actual_height}, FPS: {actual_fps}")
+        w, h = 640, 480
+
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        # cap.set(cv2.CAP_PROP_BUFFERSIZE, 1) # not requried but may help
+
+        # Print to confirm
+        print("Camera settings:")
+        print(f"  Width:  {cap.get(cv2.CAP_PROP_FRAME_WIDTH)}")
+        print(f"  Height: {cap.get(cv2.CAP_PROP_FRAME_HEIGHT)}")
+        print(f"  FPS:    {cap.get(cv2.CAP_PROP_FPS)}")
+
 
         # Initialize mediapipe with optimized settings for better performance
         with mp_face_mesh.FaceMesh(
@@ -209,9 +206,6 @@ def trackEyes():
             min_detection_confidence=0.7,  # Increased for better stability
             min_tracking_confidence=0.5
         ) as face_mesh:
-
-            frame_count = 0
-            fps_start_time = time.time()
             
             # this is the second looped thread that will run the eye tracking code indefinitely until stopped 
             while cap.isOpened() and not quitApplication:
@@ -224,9 +218,6 @@ def trackEyes():
                 
                 # Flip frame horizontally for mirror effect (more intuitive)
                 frame = cv2.flip(frame, 1)
-                
-                # Get frame dimensions
-                h, w, _ = frame.shape
                 
                 # Calculate center of frame for reference
                 frame_center_x = w // 2
@@ -277,21 +268,15 @@ def trackEyes():
                         writer.writerow({"time": time.time() - startTime, "x": eye_center_x, "y": eye_center_y})
                         csvfile.flush()
                         
-                        # Calculate error from center
-                        error_x = target_x - frame_center_x
-                        error_y = target_y - frame_center_y
-                        
-                        # Calculate servo adjustments
-                        servo_adjust_x = error_x * TRACKING_SENSITIVITY_X
-                        servo_adjust_y = error_y * TRACKING_SENSITIVITY_Y
-                        
-                        # Apply smoothing and update servo positions
-                        new_x_pos = currentXServoPos + servo_adjust_x
-                        new_y_pos = currentYServoPos + servo_adjust_y
+
+                        # convert the error (position of eyes on grid x: 0-width y:0-height) to actual positional arguments -1 to 1
+                        servo_x = ((target_x/w) * 2) - 1
+                        servo_y = ((target_y/h) * 2) - 1
+
                         
                         # Smooth the movement
-                        currentXServoPos = currentXServoPos * SERVO_SMOOTHING + new_x_pos * (1 - SERVO_SMOOTHING)
-                        currentYServoPos = currentYServoPos * SERVO_SMOOTHING + new_y_pos * (1 - SERVO_SMOOTHING)
+                        currentXServoPos = servo_x 
+                        currentYServoPos = servo_y
                         
                         # Clamp to servo limits
                         currentXServoPos = max(-1, min(1, currentXServoPos))
@@ -306,7 +291,7 @@ def trackEyes():
                         cv2.putText(frame, f"Servo X: {currentXServoPos:.3f}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         cv2.putText(frame, f"Servo Y: {currentYServoPos:.3f}", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         
-                        print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Error: ({error_x}, {error_y}) Servo: ({currentXServoPos}, {currentYServoPos})")
+                        print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Servo: ({currentXServoPos}, {currentYServoPos})")
 
                     # Store last eye position for offset calibration
                     if hasattr(gui, 'lastEyeX'):
