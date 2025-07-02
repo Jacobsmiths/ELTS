@@ -273,18 +273,19 @@ def trackEyes():
                         servo_x = ((target_x/w) * 2) - 1
                         servo_y = ((target_y/h) * 2) - 1
 
-                        
+                        smoothing = 0.7
                         # Smooth the movement
-                        currentXServoPos = servo_x 
+                        # currentXServoPos = currentXServoPos * smoothing + servo_x * (1-smoothing)
+                        # currentYServoPos = currentYServoPos * smoothing + servo_y * (1- smoothing)
+                        currentXServoPos = servo_x
                         currentYServoPos = servo_y
-                        
                         # Clamp to servo limits
                         currentXServoPos = max(-1, min(1, currentXServoPos))
                         currentYServoPos = max(-1, min(1, currentYServoPos))
                         
                         # Move servos (uncomment when servos are connected)
                         xServo.value = currentXServoPos
-                        yServo.value = currentYServoPos
+                        yServo.value = -currentYServoPos
                         
                         # Add tracking status to frame
                         cv2.putText(frame, "TRACKING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
