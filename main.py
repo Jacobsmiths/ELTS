@@ -303,7 +303,7 @@ def trackEyes():
                         # Apply smoothing and update servo positions
                         new_x_pos = currentXServoPos + servo_adjust_x
                         new_y_pos = currentYServoPos + servo_adjust_y
-smoothing = 0.7
+                        smoothing = 0.7
                         # Smooth the movement
                         currentXServoPos = currentXServoPos * SERVO_SMOOTHING + new_x_pos * (1 - SERVO_SMOOTHING)
                         currentYServoPos = currentYServoPos * SERVO_SMOOTHING + new_y_pos * (1 - SERVO_SMOOTHING)
