@@ -16,6 +16,12 @@ tracking = False
 xServoPin = 13
 yServoPin = 12
 
+
+TRACKING_SENSITIVITY_X = 0.002  # How much to move servo per pixel difference
+TRACKING_SENSITIVITY_Y = 0.002
+SERVO_SMOOTHING = 0.7  # Smoothing factor (0-1, higher = smoother but slower)
+
+
 # we will be using gpiozeros servo class to control the servos with PWM
 xServo = Servo(xServoPin, min_pulse_width=0.0005, max_pulse_width=0.00245)  # min and max pulse widths are found on the servos datasheet
 yServo = Servo(yServoPin, min_pulse_width=0.0005, max_pulse_width=0.00245) 
@@ -269,24 +275,47 @@ def trackEyes():
                         csvfile.flush()
                         
 
-                        # convert the error (position of eyes on grid x: 0-width y:0-height) to actual positional arguments -1 to 1
-                        servo_x = ((target_x/w) * 2) - 1
-                        servo_y = ((target_y/h) * 2) - 1
+                        # # convert the error (position of eyes on grid x: 0-width y:0-height) to actual positional arguments -1 to 1
+                        # servo_x = ((target_x/w) * 2) - 1
+                        # servo_y = ((target_y/h) * 2) - 1
 
-                        smoothing = 0.7
+                        
+                        # # Smooth the movement
+                        # currentXServoPos = servo_x 
+                        # currentYServoPos = servo_y
+                        
+                        # # Clamp to servo limits
+                        # currentXServoPos = max(-1, min(1, currentXServoPos))
+                        # currentYServoPos = max(-1, min(1, currentYServoPos))
+                        
+                        # # Move servos (uncomment when servos are connected)
+                        # xServo.value = currentXServoPos
+                        # yServo.value = currentYServoPos
+                        
+
+                        error_x = target_x - frame_center_x
+                        error_y = target_y - frame_center_y
+
+                        # Calculate servo adjustments (invert X if needed based on your servo orientation)
+                        servo_adjust_x = error_x * TRACKING_SENSITIVITY_X
+                        servo_adjust_y = error_y * TRACKING_SENSITIVITY_Y
+
+                        # Apply smoothing and update servo positions
+                        new_x_pos = currentXServoPos + servo_adjust_x
+                        new_y_pos = currentYServoPos + servo_adjust_y
+smoothing = 0.7
                         # Smooth the movement
-                        # currentXServoPos = currentXServoPos * smoothing + servo_x * (1-smoothing)
-                        # currentYServoPos = currentYServoPos * smoothing + servo_y * (1- smoothing)
-                        currentXServoPos = servo_x
-                        currentYServoPos = servo_y
+                        currentXServoPos = currentXServoPos * SERVO_SMOOTHING + new_x_pos * (1 - SERVO_SMOOTHING)
+                        currentYServoPos = currentYServoPos * SERVO_SMOOTHING + new_y_pos * (1 - SERVO_SMOOTHING)
+
                         # Clamp to servo limits
                         currentXServoPos = max(-1, min(1, currentXServoPos))
                         currentYServoPos = max(-1, min(1, currentYServoPos))
-                        
-                        # Move servos (uncomment when servos are connected)
+
+                        # Move servos
                         xServo.value = currentXServoPos
                         yServo.value = -currentYServoPos
-                        
+
                         # Add tracking status to frame
                         cv2.putText(frame, "TRACKING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                         cv2.putText(frame, f"Servo X: {currentXServoPos:.3f}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
