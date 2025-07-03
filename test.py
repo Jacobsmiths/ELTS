@@ -298,14 +298,6 @@ def trackEyes():
                         error_x = target_x - frame_center_x
                         error_y = target_y - frame_center_y
 
-                        # Apply deadband to the error
-                        DEADBAND_PIXELS = 3  # Adjust this value as needed
-
-                        if abs(error_x) < DEADBAND_PIXELS:
-                            error_x = 0
-                        if abs(error_y) < DEADBAND_PIXELS:
-                            error_y = 0
-
                         # Calculate servo adjustments
                         servo_adjust_x = error_x * TRACKING_SENSITIVITY_X
                         servo_adjust_y = error_y * TRACKING_SENSITIVITY_Y
