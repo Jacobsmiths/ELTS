@@ -314,7 +314,7 @@ def trackEyes():
 
                         # Move servos
                         xServo.value = currentXServoPos
-                        yServo.value = -currentYServoPos
+                        yServo.value = currentYServoPos
 
                         # Add tracking status to frame
                         cv2.putText(frame, "TRACKING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
