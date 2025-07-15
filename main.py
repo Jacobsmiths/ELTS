@@ -3,7 +3,10 @@ import tkinter as tk
 import threading
 import cv2
 import mediapipe as mp
-from gpiozero import Servo
+import busio
+import board
+from adafruit_pca9685 import PCA9685
+from adafruit_motor import servo
 import csv
 import time
 
@@ -12,26 +15,57 @@ import time
 quitApplication = False
 tracking = False
 
-# these are the GPIO pins for the servos (To do: change these to your actual GPIO pins)
-xServoPin = 13
-yServoPin = 12
+# PCA9685 servo channel assignments (0-15 available)
+X_SERVO_CHANNEL = 0
+Y_SERVO_CHANNEL = 1
 
+# Servo configuration
+SERVO_MIN_PULSE = 500   # Minimum pulse width in microseconds
+SERVO_MAX_PULSE = 2450  # Maximum pulse width in microseconds
+SERVO_FREQUENCY = 50    # PWM frequency for servos (50Hz standard)
 
 TRACKING_SENSITIVITY_X = 0.002  # How much to move servo per pixel difference
 TRACKING_SENSITIVITY_Y = 0.002
 SERVO_SMOOTHING = 0.9  # Smoothing factor (0-1, higher = smoother but slower)
 
+# Initialize I2C bus and PCA9685
+i2c = busio.I2C(board.SCL, board.SDA)
+pca = PCA9685(i2c)
+pca.frequency = SERVO_FREQUENCY
 
-# we will be using gpiozeros servo class to control the servos with PWM
-xServo = Servo(xServoPin, min_pulse_width=0.0005, max_pulse_width=0.00245)  # min and max pulse widths are found on the servos datasheet
-yServo = Servo(yServoPin, min_pulse_width=0.0005, max_pulse_width=0.00245) 
+# Create servo objects
+xServo = servo.Servo(pca.channels[X_SERVO_CHANNEL], min_pulse=SERVO_MIN_PULSE, max_pulse=SERVO_MAX_PULSE)
+yServo = servo.Servo(pca.channels[Y_SERVO_CHANNEL], min_pulse=SERVO_MIN_PULSE, max_pulse=SERVO_MAX_PULSE)
 
 # Calibration offsets and servo positions used for testing
 xOffset = 0
 yOffset = 0
-# the idea is that we will get the width and height of the camera view and map that to -1 to 1 for both the y and x axis
-currentXServoPos = 0  # Range from -1 to 1
-currentYServoPos = 0  # Range from -1 to 1
+# Servo positions in degrees (typically 0-180 degrees)
+currentXServoPos = 90  # Center position
+currentYServoPos = 90  # Center position
+
+# Helper functions for servo control
+def setServoAngle(servo_obj, angle):
+    """Set servo to specific angle (0-180 degrees)"""
+    try:
+        # Clamp angle to valid range
+        angle = max(0, min(180, angle))
+        servo_obj.angle = angle
+    except Exception as e:
+        print(f"Error setting servo angle: {e}")
+
+def mapToServoAngle(normalized_value):
+    """Convert normalized value (-1 to 1) to servo angle (0-180 degrees)"""
+    return int(90 + (normalized_value * 90))  # Center at 90 degrees
+
+def centerServos():
+    """Center both servos to 90 degrees"""
+    global currentXServoPos, currentYServoPos
+    currentXServoPos = 90
+    currentYServoPos = 90
+    setServoAngle(xServo, 90)
+    setServoAngle(yServo, 90)
+    print("Servos centered at 90 degrees")
 
 # this is the GUI class using tkinter library documentation can be found at https://docs.python.org/3/library/tk.html
 class Gui:
@@ -95,33 +129,34 @@ class Gui:
         global quitApplication
         quitApplication = True
         print("ending program")
+        # Clean up PCA9685
+        pca.deinit()
         self.root.quit() 
 
-    # this method manually moves the servos in the corresponding direction by setting the servo value to 
-    # the current position plus or minus .1 value
+    # this method manually moves the servos in the corresponding direction by adjusting angle by 5 degrees
     def moveLeft(self):
         global currentXServoPos
-        currentXServoPos = max(-1, currentXServoPos - 0.1)
-        # xServo.value = currentXServoPos
-        print(f"move left - X servo: {currentXServoPos}")
+        currentXServoPos = max(0, currentXServoPos - 5)
+        setServoAngle(xServo, currentXServoPos)
+        print(f"move left - X servo: {currentXServoPos} degrees")
 
     def moveRight(self):
         global currentXServoPos
-        currentXServoPos = min(1, currentXServoPos + 0.1)
-        # xServo.value = currentXServoPos
-        print(f"move right - X servo: {currentXServoPos}")
+        currentXServoPos = min(180, currentXServoPos + 5)
+        setServoAngle(xServo, currentXServoPos)
+        print(f"move right - X servo: {currentXServoPos} degrees")
 
     def moveUp(self):
         global currentYServoPos
-        currentYServoPos = max(-1, currentYServoPos - 0.1)
-        # yServo.value = currentYServoPos
-        print(f"move up - Y servo: {currentYServoPos}")
+        currentYServoPos = max(0, currentYServoPos - 5)
+        setServoAngle(yServo, currentYServoPos)
+        print(f"move up - Y servo: {currentYServoPos} degrees")
 
     def moveDown(self):
         global currentYServoPos
-        currentYServoPos = min(1, currentYServoPos + 0.1)
-        # yServo.value = currentYServoPos
-        print(f"move down - Y servo: {currentYServoPos}")
+        currentYServoPos = min(180, currentYServoPos + 5)
+        setServoAngle(yServo, currentYServoPos)
+        print(f"move down - Y servo: {currentYServoPos} degrees")
 
     def setMaxX(self):
         global xOffset
@@ -137,19 +172,14 @@ class Gui:
 
     # this is to center the position of the servos when not tracking
     def centerServos(self):
-        global currentXServoPos, currentYServoPos
-        currentXServoPos = 0
-        currentYServoPos = 0
-        xServo.mid()
-        yServo.mid()
-        print("Servos centered")
+        centerServos()
 
     # this method starts the GUI loop IMPORTANT: once this is called the program thread will be locked in the loop
     # this is why its important to start the other thread before calling this method
     def startGui(self):
         self.root.mainloop()
 
-# this method is going to be sent to the second thread to run the eye tracking code and send it to the servos over GPIO
+# this method is going to be sent to the second thread to run the eye tracking code and send it to the servos
 def trackEyes():
     global currentXServoPos, currentYServoPos # defines the global variables we will use to be global so we can edit them
 
@@ -196,7 +226,6 @@ def trackEyes():
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
         cap.set(cv2.CAP_PROP_FPS, 30)
-        # cap.set(cv2.CAP_PROP_BUFFERSIZE, 1) # not requried but may help
 
         # Print to confirm
         print("Camera settings:")
@@ -204,6 +233,8 @@ def trackEyes():
         print(f"  Height: {cap.get(cv2.CAP_PROP_FRAME_HEIGHT)}")
         print(f"  FPS:    {cap.get(cv2.CAP_PROP_FPS)}")
 
+        # Initialize servos to center position
+        centerServos()
 
         # Initialize mediapipe with optimized settings for better performance
         with mp_face_mesh.FaceMesh(
@@ -273,55 +304,37 @@ def trackEyes():
                         # Log data to CSV
                         writer.writerow({"time": time.time() - startTime, "x": eye_center_x, "y": eye_center_y})
                         csvfile.flush()
-                        
 
-                        # # convert the error (position of eyes on grid x: 0-width y:0-height) to actual positional arguments -1 to 1
-                        # servo_x = ((target_x/w) * 2) - 1
-                        # servo_y = ((target_y/h) * 2) - 1
-
-                        
-                        # # Smooth the movement
-                        # currentXServoPos = servo_x 
-                        # currentYServoPos = servo_y
-                        
-                        # # Clamp to servo limits
-                        # currentXServoPos = max(-1, min(1, currentXServoPos))
-                        # currentYServoPos = max(-1, min(1, currentYServoPos))
-                        
-                        # # Move servos (uncomment when servos are connected)
-                        # xServo.value = currentXServoPos
-                        # yServo.value = currentYServoPos
-                        
-
+                        # Calculate error from center
                         error_x = target_x - frame_center_x
                         error_y = target_y - frame_center_y
 
-                        # Calculate servo adjustments (invert X if needed based on your servo orientation)
-                        servo_adjust_x = error_x * TRACKING_SENSITIVITY_X
-                        servo_adjust_y = error_y * TRACKING_SENSITIVITY_Y
+                        # Calculate servo adjustments
+                        servo_adjust_x = error_x * TRACKING_SENSITIVITY_X * 90  # Scale to degrees
+                        servo_adjust_y = error_y * TRACKING_SENSITIVITY_Y * 90
 
                         # Apply smoothing and update servo positions
                         new_x_pos = currentXServoPos + servo_adjust_x
                         new_y_pos = currentYServoPos + servo_adjust_y
-                        smoothing = 0.7
+
                         # Smooth the movement
                         currentXServoPos = currentXServoPos * SERVO_SMOOTHING + new_x_pos * (1 - SERVO_SMOOTHING)
                         currentYServoPos = currentYServoPos * SERVO_SMOOTHING + new_y_pos * (1 - SERVO_SMOOTHING)
 
-                        # Clamp to servo limits
-                        currentXServoPos = max(-1, min(1, currentXServoPos))
-                        currentYServoPos = max(-1, min(1, currentYServoPos))
+                        # Clamp to servo limits (0-180 degrees)
+                        currentXServoPos = max(0, min(180, currentXServoPos))
+                        currentYServoPos = max(0, min(180, currentYServoPos))
 
                         # Move servos
-                        xServo.value = currentXServoPos
-                        yServo.value = currentYServoPos
+                        setServoAngle(xServo, currentXServoPos)
+                        setServoAngle(yServo, currentYServoPos)
 
                         # Add tracking status to frame
                         cv2.putText(frame, "TRACKING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                        cv2.putText(frame, f"Servo X: {currentXServoPos:.3f}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                        cv2.putText(frame, f"Servo Y: {currentYServoPos:.3f}", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(frame, f"Servo X: {currentXServoPos:.1f}°", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(frame, f"Servo Y: {currentYServoPos:.1f}°", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         
-                        print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Servo: ({currentXServoPos}, {currentYServoPos})")
+                        print(f"Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Servo: ({currentXServoPos:.1f}°, {currentYServoPos:.1f}°)")
 
                     # Store last eye position for offset calibration
                     if hasattr(gui, 'lastEyeX'):
@@ -331,17 +344,6 @@ def trackEyes():
                 else:
                     # No face detected
                     cv2.putText(frame, "NO FACE DETECTED", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-                # Calculate and display FPS
-                # frame_count += 1
-                # if frame_count % 30 == 0:  # Update FPS every 30 frames
-                #     fps_end_time = time.time()
-                #     fps = 30 / (fps_end_time - fps_start_time)
-                #     fps_start_time = fps_end_time
-                #     print(f"FPS: {fps:.1f}")
-
-                # # Display FPS on frame
-                # cv2.putText(frame, f"FPS: {cap.get(cv2.CAP_PROP_FPS):.1f}", (w-150, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
                 # Display the frame
                 cv2.imshow("Eye Tracker", frame)
@@ -358,13 +360,21 @@ def trackEyes():
 
 # This is the main entry point of the program
 if __name__ == "__main__":
-    # Start tracking in a separate thread
-    trackingThread = threading.Thread(target=trackEyes, daemon=True)
-    trackingThread.start()
-    
-    # Initialize and Start GUI in main thread
-    gui = Gui()
-    gui.startGui()
-    
-    # Clean up once gui is closed
-    print("Program ended")
+    try:
+        # Start tracking in a separate thread
+        trackingThread = threading.Thread(target=trackEyes, daemon=True)
+        trackingThread.start()
+        
+        # Initialize and Start GUI in main thread
+        gui = Gui()
+        gui.startGui()
+        
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        # Clean up PCA9685 on exit
+        try:
+            pca.deinit()
+        except:
+            pass
+        print("Program ended")
