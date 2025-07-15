@@ -24,9 +24,9 @@ SERVO_MIN_PULSE = 500   # Minimum pulse width in microseconds
 SERVO_MAX_PULSE = 2450  # Maximum pulse width in microseconds
 SERVO_FREQUENCY = 50    # PWM frequency for servos (50Hz standard)
 
-TRACKING_SENSITIVITY_X = 0.01  # How much to move servo per pixel difference
-TRACKING_SENSITIVITY_Y = 0.01
-SERVO_SMOOTHING = 0.6  # Smoothing factor (0-1, higher = smoother but slower)
+TRACKING_SENSITIVITY_X = 0.001  # How much to move servo per pixel difference
+TRACKING_SENSITIVITY_Y = 0.001
+SERVO_SMOOTHING = 0.65  # Smoothing factor (0-1, higher = smoother but slower)
 
 # Initialize I2C bus and PCA9685
 i2c = busio.I2C(board.SCL, board.SDA)
