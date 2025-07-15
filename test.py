@@ -13,8 +13,8 @@ quitApplication = False
 tracking = False
 
 # Hardware PWM pins
-X_SERVO_PIN = 12  # Hardware PWM channel 0
-Y_SERVO_PIN = 13  # Hardware PWM channel 1
+X_SERVO_PIN = 13  # Hardware PWM channel 0
+Y_SERVO_PIN = 12  # Hardware PWM channel 1
 
 TRACKING_SENSITIVITY_X = 0.002  # How much to move servo per pixel difference
 TRACKING_SENSITIVITY_Y = 0.002
