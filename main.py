@@ -287,8 +287,8 @@ def trackEyes():
                     eye_center_y = (left_center[1] + right_center[1]) // 2
                     
                     # Apply offsets
-                    target_x = eye_center_x + xOffset
-                    target_y = eye_center_y + yOffset
+                    target_x = eye_center_x 
+                    target_y = eye_center_y 
                     
                     # Draw tracking indicators
                     cv2.circle(frame, left_center, 3, (0, 255, 0), -1)
