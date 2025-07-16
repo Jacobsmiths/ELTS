@@ -68,9 +68,9 @@ SERVO_FREQUENCY = 50    # PWM frequency for servos (50Hz standard)
 
 # PID controller parameters (tuned for smooth eye tracking)
 # Start with these conservative values and tune from here
-X_PID_KP = 18   # Proportional gain
-X_PID_KI = 8 # Integral gain (small to prevent windup)
-X_PID_KD = 3  # Derivative gain
+X_PID_KP = 0   # Proportional gain
+X_PID_KI = 0 # Integral gain (small to prevent windup)
+X_PID_KD = 0  # Derivative gain
 
 Y_PID_KP = 9   # Proportional gain
 Y_PID_KI = 1  # Integral gain (small to prevent windup)
@@ -235,7 +235,7 @@ def trackEyes():
         # Set camera properties
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
-        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.set(cv2.CAP_PROP_FPS, 60)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
         print("Camera settings:")
@@ -243,8 +243,7 @@ def trackEyes():
         print(f"  Height: {cap.get(cv2.CAP_PROP_FRAME_HEIGHT)}")
         print(f"  FPS:    {cap.get(cv2.CAP_PROP_FPS)}")
         
-        # Initialize servos to center position
-        centerServos()
+        
         
         # Initialize mediapipe
         with mp_face_mesh.FaceMesh(
