@@ -10,179 +10,6 @@ from adafruit_motor import servo
 import csv
 import time
 
-# defines global variables we will use
-# these are flags to control the application state
-quitApplication = False
-tracking = False
-
-# PCA9685 servo channel assignments (0-15 available)
-X_SERVO_CHANNEL = 0
-Y_SERVO_CHANNEL = 1
-
-# Servo configuration
-SERVO_MIN_PULSE = 500   # Minimum pulse width in microseconds
-SERVO_MAX_PULSE = 2450  # Maximum pulse width in microseconds
-SERVO_FREQUENCY = 50    # PWM frequency for servos (50Hz standard)
-
-TRACKING_SENSITIVITY_X = 0.001  # How much to move servo per pixel difference
-TRACKING_SENSITIVITY_Y = 0.001
-SERVO_SMOOTHING = 0.65  # Smoothing factor (0-1, higher = smoother but slower)
-
-# Initialize I2C bus and PCA9685
-i2c = busio.I2C(board.SCL, board.SDA)
-pca = PCA9685(i2c)
-pca.frequency = SERVO_FREQUENCY
-
-# Create servo objects
-xServo = servo.Servo(pca.channels[X_SERVO_CHANNEL], min_pulse=SERVO_MIN_PULSE, max_pulse=SERVO_MAX_PULSE)
-yServo = servo.Servo(pca.channels[Y_SERVO_CHANNEL], min_pulse=SERVO_MIN_PULSE, max_pulse=SERVO_MAX_PULSE)
-
-# Calibration offsets and servo positions used for testing
-xOffset = 0
-yOffset = 0
-# Servo positions in degrees (typically 0-180 degrees)
-currentXServoPos = 90  # Center position
-currentYServoPos = 90  # Center position
-
-# Helper functions for servo control
-def setServoAngle(servo_obj, angle):
-    """Set servo to specific angle (0-180 degrees)"""
-    try:
-        # Clamp angle to valid range
-        angle = max(SERVO_MIN_ANGLE, min(SERVO_MAX_ANGLE, angle))
-        servo_obj.angle = angle
-    except Exception as e:
-        print(f"Error setting servo angle: {e}")
-
-def centerServos():
-    """Center both servos to 90 degrees and reset PID controllers"""
-    global currentXServoPos, currentYServoPos, last_update_time
-    
-    currentXServoPos = SERVO_CENTER_ANGLE
-    currentYServoPos = SERVO_CENTER_ANGLE
-    setServoAngle(xServo, SERVO_CENTER_ANGLE)
-    setServoAngle(yServo, SERVO_CENTER_ANGLE)
-    
-    # Reset PID controllers
-    x_pid.reset()
-    y_pid.reset()
-    last_update_time = time.time()
-    
-    print("Servos centered at 90 degrees and PIDs reset")
-
-# this is the GUI class using tkinter library documentation can be found at https://docs.python.org/3/library/tk.html
-class Gui:
-    # initializes the gui and sets up layout
-    def __init__(self):
-        # defines root element which everything else gets added to this element
-        # basically the main window and tkinter elements are added to this via the pack method
-        self.root = tk.Tk()
-        self.root.title("The Awesome Eye Tracker") # defines window title :)
-
-        # the way tkinter works is by first creating an element such as label or button with root as the parent element
-        label = tk.Label(self.root, text="Press Start to begin tracking") 
-        # then the created elements are packed/ added to the window 
-        label.pack(pady=10)
-
-        # Creates buttons and the methods run are the corresponding method names given to command parameter
-        # so th method set to command (in this case setStartTracking) will run when the Start button is pressed
-        start_button = tk.Button(self.root, text="Start", command=self.setStartTracking)
-        start_button.pack(pady=10)
-
-        stop_button = tk.Button(self.root, text="Stop", command=self.stopTracking)
-        stop_button.pack(pady=5)
-
-        exit_button = tk.Button(self.root, text="Exit", command=self.endProgram)
-        exit_button.pack(pady=10)
-
-        calibrationFrame = tk.Frame(self.root, padx=10, pady=10)
-        calibrationFrame.pack(pady=10)
-
-        # creates a smaller frame inside for an arrow control panel for adjusting offsets for testing
-        arrowFrame = tk.Frame(calibrationFrame, bg="lightgray", padx=10, pady=10)
-        arrowFrame.pack(side=tk.RIGHT, pady=10)
-
-        tk.Button(arrowFrame, text="left", command=self.moveLeft).grid(column=0, row=1)
-        tk.Button(arrowFrame, text="right", command=self.moveRight).grid(column=2, row=1)
-        tk.Button(arrowFrame, text="up", command=self.moveUp).grid(column=1, row=0)
-        tk.Button(arrowFrame, text="down", command=self.moveDown).grid(column=1, row=2)
-
-        # this frame contains the arrow frame and the buttons for settings offsets
-        setFrame = tk.Frame(calibrationFrame, padx=10)
-        setFrame.pack(side=tk.LEFT)
-
-        tk.Button(setFrame, text="Set Offset For X", command=self.setMaxX).pack(pady=5)
-        tk.Button(setFrame, text="Set Offset For Y", command=self.setMaxY).pack(pady=5)
-        tk.Button(setFrame, text="Center Servos", command=self.centerServos).pack(pady=5)
-
-    # this sets the tracking flag to true
-    def setStartTracking(self):
-        global tracking
-        tracking = True
-        print("start tracking")
-
-    # this sets the tracking flag to false
-    def stopTracking(self):
-        global tracking
-        tracking = False
-        print("stop tracking")
-
-    # this sets the quitApplication flag to true and then self.root.quit() ends the GUI loop
-    def endProgram(self):
-        global quitApplication
-        quitApplication = True
-        print("ending program")
-        # Clean up PCA9685
-        pca.deinit()
-        self.root.quit() 
-
-    # this method manually moves the servos in the corresponding direction by adjusting angle by 5 degrees
-    def moveLeft(self):
-        global currentXServoPos
-        currentXServoPos = max(0, currentXServoPos - 5)
-        setServoAngle(xServo, currentXServoPos)
-        print(f"move left - X servo: {currentXServoPos} degrees")
-
-    def moveRight(self):
-        global currentXServoPos
-        currentXServoPos = min(180, currentXServoPos + 5)
-        setServoAngle(xServo, currentXServoPos)
-        print(f"move right - X servo: {currentXServoPos} degrees")
-
-    def moveUp(self):
-        global currentYServoPos
-        currentYServoPos = max(0, currentYServoPos - 5)
-        setServoAngle(yServo, currentYServoPos)
-        print(f"move up - Y servo: {currentYServoPos} degrees")
-
-    def moveDown(self):
-        global currentYServoPos
-        currentYServoPos = min(180, currentYServoPos + 5)
-        setServoAngle(yServo, currentYServoPos)
-        print(f"move down - Y servo: {currentYServoPos} degrees")
-
-    def setMaxX(self):
-        global xOffset
-        # Store current eye position as X offset
-        xOffset = getattr(self, 'lastEyeX', 0)
-        print(f"Set X offset to: {xOffset}")
-
-    def setMaxY(self):
-        global yOffset
-        # Store current eye position as Y offset
-        yOffset = getattr(self, 'lastEyeY', 0)
-        print(f"Set Y offset to: {yOffset}")
-
-    # this is to center the position of the servos when not tracking
-    def centerServos(self):
-        centerServos()
-
-    # this method starts the GUI loop IMPORTANT: once this is called the program thread will be locked in the loop
-    # this is why its important to start the other thread before calling this method
-    def startGui(self):
-        self.root.mainloop()
-
-
 class PIDController:
     def __init__(self, Kp, Ki, Kd, setpoint):
         self.Kp = Kp
@@ -240,14 +67,13 @@ SERVO_MAX_PULSE = 2450  # Maximum pulse width in microseconds
 SERVO_FREQUENCY = 50    # PWM frequency for servos (50Hz standard)
 
 # PID controller parameters (tuned for smooth eye tracking)
-# X-axis PID parameters
-X_PID_KP = 0.8   # Proportional gain
-X_PID_KI = 0.1   # Integral gain
+# Start with these conservative values and tune from here
+X_PID_KP = 0.5   # Proportional gain
+X_PID_KI = 0.02  # Integral gain (small to prevent windup)
 X_PID_KD = 0.05  # Derivative gain
 
-# Y-axis PID parameters
-Y_PID_KP = 0.8   # Proportional gain
-Y_PID_KI = 0.1   # Integral gain
+Y_PID_KP = 0.5   # Proportional gain
+Y_PID_KI = 0.02  # Integral gain (small to prevent windup)
 Y_PID_KD = 0.05  # Derivative gain
 
 # Servo limits and constraints
@@ -256,7 +82,7 @@ SERVO_MAX_ANGLE = 180
 SERVO_CENTER_ANGLE = 90
 
 # Maximum change per update (degrees) - prevents jerky movements
-MAX_SERVO_CHANGE = 5.0
+MAX_SERVO_CHANGE = 2.0  # Smaller for smoother normalized control
 
 # Initialize I2C bus and PCA9685
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -282,15 +108,40 @@ FRAME_CENTER_X = FRAME_WIDTH // 2
 FRAME_CENTER_Y = FRAME_HEIGHT // 2
 
 # Initialize PID controllers
-# Setpoint is the center of the frame (where we want eyes to be)
-x_pid = PIDController(X_PID_KP, X_PID_KI, X_PID_KD, FRAME_CENTER_X)
-y_pid = PIDController(Y_PID_KP, Y_PID_KI, Y_PID_KD, FRAME_CENTER_Y)
+# Setpoint is 0 (center), we want to drive the normalized error to zero
+x_pid = PIDController(X_PID_KP, X_PID_KI, X_PID_KD, 0)  # Setpoint is 0 (centered)
+y_pid = PIDController(Y_PID_KP, Y_PID_KI, Y_PID_KD, 0)  # Setpoint is 0 (centered)
 
 # Timing variables for PID
 last_update_time = time.time()
 
+def setServoAngle(servo_obj, angle):
+    """Set servo to specific angle (0-180 degrees)"""
+    try:
+        # Clamp angle to valid range
+        angle = max(SERVO_MIN_ANGLE, min(SERVO_MAX_ANGLE, angle))
+        servo_obj.angle = angle
+    except Exception as e:
+        print(f"Error setting servo angle: {e}")
+
+def centerServos():
+    """Center both servos to 90 degrees and reset PID controllers"""
+    global currentXServoPos, currentYServoPos, last_update_time
+    
+    currentXServoPos = SERVO_CENTER_ANGLE
+    currentYServoPos = SERVO_CENTER_ANGLE
+    setServoAngle(xServo, SERVO_CENTER_ANGLE)
+    setServoAngle(yServo, SERVO_CENTER_ANGLE)
+    
+    # Reset PID controllers
+    x_pid.reset()
+    y_pid.reset()
+    last_update_time = time.time()
+    
+    print("Servos centered at 90 degrees and PIDs reset")
+
 def updateServoWithPID(eye_center_x, eye_center_y):
-    """Update servo positions using PID control"""
+    """Update servo positions using PID control with normalized values"""
     global currentXServoPos, currentYServoPos, last_update_time
     
     current_time = time.time()
@@ -298,38 +149,36 @@ def updateServoWithPID(eye_center_x, eye_center_y):
     
     # Minimum time delta to prevent division by zero
     if dt < 0.001:
-        return
+        return 0, 0
     
     # Apply offsets to eye position
     target_x = eye_center_x + xOffset
     target_y = eye_center_y + yOffset
     
-    # Compute PID outputs (in pixels)
-    x_output = x_pid.compute(target_x, dt)
-    y_output = y_pid.compute(target_y, dt)
+    # Calculate normalized error (-1 to 1)
+    # Negative error means eyes are left/up of center, positive means right/down
+    error_x = (target_x - FRAME_CENTER_X) / FRAME_CENTER_X  # Normalize to -1 to 1
+    error_y = (target_y - FRAME_CENTER_Y) / FRAME_CENTER_Y  # Normalize to -1 to 1
     
-    # Convert pixel error to servo angle adjustment
-    # Scale factor converts pixel difference to degrees
-    X_SCALE_FACTOR = 90.0 / FRAME_CENTER_X  # 90 degrees spans half the frame
-    Y_SCALE_FACTOR = 90.0 / FRAME_CENTER_Y
+    # Compute PID outputs (normalized values)
+    # PID setpoint is 0 (center), process variable is the normalized error
+    x_output = x_pid.compute(error_x, dt)
+    y_output = y_pid.compute(error_y, dt)
     
-    # Calculate new servo positions
-    # Note: We subtract because servo movement is opposite to eye movement
-    new_x_pos = currentXServoPos - (x_output * X_SCALE_FACTOR)
-    new_y_pos = currentYServoPos - (y_output * Y_SCALE_FACTOR)
+    # Apply PID output directly to servo position
+    # We want to move servo in opposite direction of error to center the target
+    servo_adjust_x = -x_output  # Negative because we want to counteract the error
+    servo_adjust_y = -y_output
     
     # Limit maximum change per update to prevent jerky movements
-    x_change = new_x_pos - currentXServoPos
-    y_change = new_y_pos - currentYServoPos
+    if abs(servo_adjust_x) > MAX_SERVO_CHANGE:
+        servo_adjust_x = MAX_SERVO_CHANGE if servo_adjust_x > 0 else -MAX_SERVO_CHANGE
+    if abs(servo_adjust_y) > MAX_SERVO_CHANGE:
+        servo_adjust_y = MAX_SERVO_CHANGE if servo_adjust_y > 0 else -MAX_SERVO_CHANGE
     
-    if abs(x_change) > MAX_SERVO_CHANGE:
-        x_change = MAX_SERVO_CHANGE if x_change > 0 else -MAX_SERVO_CHANGE
-    if abs(y_change) > MAX_SERVO_CHANGE:
-        y_change = MAX_SERVO_CHANGE if y_change > 0 else -MAX_SERVO_CHANGE
-    
-    # Apply limited changes
-    currentXServoPos += x_change
-    currentYServoPos += y_change
+    # Apply changes to current positions
+    currentXServoPos += servo_adjust_x
+    currentYServoPos += servo_adjust_y
     
     # Clamp to servo limits
     currentXServoPos = max(SERVO_MIN_ANGLE, min(SERVO_MAX_ANGLE, currentXServoPos))
@@ -474,13 +323,13 @@ def trackEyes():
                         cv2.putText(frame, f"PID X: {pid_x_output:.2f}", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         cv2.putText(frame, f"PID Y: {pid_y_output:.2f}", (10, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         
-                        # Calculate and display error
-                        error_x = target_x - FRAME_CENTER_X
-                        error_y = target_y - FRAME_CENTER_Y
-                        cv2.putText(frame, f"Error X: {error_x:.0f}px", (10, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                        cv2.putText(frame, f"Error Y: {error_y:.0f}px", (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        # Calculate and display normalized error
+                        error_x_norm = (target_x - FRAME_CENTER_X) / FRAME_CENTER_X
+                        error_y_norm = (target_y - FRAME_CENTER_Y) / FRAME_CENTER_Y
+                        cv2.putText(frame, f"Error X: {error_x_norm:.3f}", (10, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(frame, f"Error Y: {error_y_norm:.3f}", (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         
-                        print(f"PID Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Servo: ({currentXServoPos:.1f}°, {currentYServoPos:.1f}°) Error: ({error_x}, {error_y})")
+                        print(f"PID Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Servo: ({currentXServoPos:.1f}°, {currentYServoPos:.1f}°) Error: ({error_x_norm:.3f}, {error_y_norm:.3f})")
                     
                     # Store last eye position for GUI
                     if hasattr(gui, 'lastEyeX'):
@@ -533,6 +382,121 @@ def resetPIDControllers():
     x_pid.reset()
     y_pid.reset()
     print("PID controllers reset")
+
+
+# this is the GUI class using tkinter library documentation can be found at https://docs.python.org/3/library/tk.html
+class Gui:
+    # initializes the gui and sets up layout
+    def __init__(self):
+        # defines root element which everything else gets added to this element
+        # basically the main window and tkinter elements are added to this via the pack method
+        self.root = tk.Tk()
+        self.root.title("The Awesome Eye Tracker") # defines window title :)
+
+        # the way tkinter works is by first creating an element such as label or button with root as the parent element
+        label = tk.Label(self.root, text="Press Start to begin tracking") 
+        # then the created elements are packed/ added to the window 
+        label.pack(pady=10)
+
+        # Creates buttons and the methods run are the corresponding method names given to command parameter
+        # so th method set to command (in this case setStartTracking) will run when the Start button is pressed
+        start_button = tk.Button(self.root, text="Start", command=self.setStartTracking)
+        start_button.pack(pady=10)
+
+        stop_button = tk.Button(self.root, text="Stop", command=self.stopTracking)
+        stop_button.pack(pady=5)
+
+        exit_button = tk.Button(self.root, text="Exit", command=self.endProgram)
+        exit_button.pack(pady=10)
+
+        calibrationFrame = tk.Frame(self.root, padx=10, pady=10)
+        calibrationFrame.pack(pady=10)
+
+        # creates a smaller frame inside for an arrow control panel for adjusting offsets for testing
+        arrowFrame = tk.Frame(calibrationFrame, bg="lightgray", padx=10, pady=10)
+        arrowFrame.pack(side=tk.RIGHT, pady=10)
+
+        tk.Button(arrowFrame, text="left", command=self.moveLeft).grid(column=0, row=1)
+        tk.Button(arrowFrame, text="right", command=self.moveRight).grid(column=2, row=1)
+        tk.Button(arrowFrame, text="up", command=self.moveUp).grid(column=1, row=0)
+        tk.Button(arrowFrame, text="down", command=self.moveDown).grid(column=1, row=2)
+
+        # this frame contains the arrow frame and the buttons for settings offsets
+        setFrame = tk.Frame(calibrationFrame, padx=10)
+        setFrame.pack(side=tk.LEFT)
+
+        tk.Button(setFrame, text="Set Offset For X", command=self.setMaxX).pack(pady=5)
+        tk.Button(setFrame, text="Set Offset For Y", command=self.setMaxY).pack(pady=5)
+        tk.Button(setFrame, text="Center Servos", command=self.centerServos).pack(pady=5)
+
+    # this sets the tracking flag to true
+    def setStartTracking(self):
+        global tracking
+        tracking = True
+        print("start tracking")
+
+    # this sets the tracking flag to false
+    def stopTracking(self):
+        global tracking
+        tracking = False
+        print("stop tracking")
+
+    # this sets the quitApplication flag to true and then self.root.quit() ends the GUI loop
+    def endProgram(self):
+        global quitApplication
+        quitApplication = True
+        print("ending program")
+        # Clean up PCA9685
+        pca.deinit()
+        self.root.quit() 
+
+    # this method manually moves the servos in the corresponding direction by adjusting angle by 5 degrees
+    def moveLeft(self):
+        global currentXServoPos
+        currentXServoPos = max(0, currentXServoPos - 5)
+        setServoAngle(xServo, currentXServoPos)
+        print(f"move left - X servo: {currentXServoPos} degrees")
+
+    def moveRight(self):
+        global currentXServoPos
+        currentXServoPos = min(180, currentXServoPos + 5)
+        setServoAngle(xServo, currentXServoPos)
+        print(f"move right - X servo: {currentXServoPos} degrees")
+
+    def moveUp(self):
+        global currentYServoPos
+        currentYServoPos = max(0, currentYServoPos - 5)
+        setServoAngle(yServo, currentYServoPos)
+        print(f"move up - Y servo: {currentYServoPos} degrees")
+
+    def moveDown(self):
+        global currentYServoPos
+        currentYServoPos = min(180, currentYServoPos + 5)
+        setServoAngle(yServo, currentYServoPos)
+        print(f"move down - Y servo: {currentYServoPos} degrees")
+
+    def setMaxX(self):
+        global xOffset
+        # Store current eye position as X offset
+        xOffset = getattr(self, 'lastEyeX', 0)
+        print(f"Set X offset to: {xOffset}")
+
+    def setMaxY(self):
+        global yOffset
+        # Store current eye position as Y offset
+        yOffset = getattr(self, 'lastEyeY', 0)
+        print(f"Set Y offset to: {yOffset}")
+
+    # this is to center the position of the servos when not tracking
+    def centerServos(self):
+        centerServos()
+
+    # this method starts the GUI loop IMPORTANT: once this is called the program thread will be locked in the loop
+    # this is why its important to start the other thread before calling this method
+    def startGui(self):
+        self.root.mainloop()
+
+
 
 # Main entry point
 if __name__ == "__main__":
