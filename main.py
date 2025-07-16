@@ -331,11 +331,6 @@ def trackEyes():
                         
                         print(f"PID Tracking - Eyes: ({eye_center_x}, {eye_center_y}) Servo: ({currentXServoPos:.1f}°, {currentYServoPos:.1f}°) Error: ({error_x_norm:.3f}, {error_y_norm:.3f})")
                     
-                    # Store last eye position for GUI
-                    if hasattr(gui, 'lastEyeX'):
-                        gui.lastEyeX = eye_center_x
-                        gui.lastEyeY = eye_center_y
-                
                 else:
                     # No face detected - reset PID controllers to prevent integral windup
                     if tracking:
@@ -385,6 +380,10 @@ def resetPIDControllers():
 
 # this is the GUI class using tkinter library documentation can be found at https://docs.python.org/3/library/tk.html
 class Gui:
+    # this tracks the movements for setting offsets:
+    yDelta = 0
+    xDelta = 0
+
     # initializes the gui and sets up layout
     def __init__(self):
         # defines root element which everything else gets added to this element
@@ -457,59 +456,51 @@ class Gui:
     # this method manually moves the servos in the corresponding direction by adjusting angle by 5 degrees
     def moveLeft(self):
         global currentXServoPos
-        currentXServoPos = max(0, currentXServoPos - 5)
+        currentXServoPos = max(0, currentXServoPos - 1)
+        self.xDelta -=1
         setServoAngle(xServo, currentXServoPos)
         print(f"move left - X servo: {currentXServoPos} degrees")
 
     def moveRight(self):
         global currentXServoPos
-        currentXServoPos = min(180, currentXServoPos + 5)
+        currentXServoPos = min(180, currentXServoPos + 1)
+        self.xDelta +=1
         setServoAngle(xServo, currentXServoPos)
         print(f"move right - X servo: {currentXServoPos} degrees")
 
     def moveUp(self):
         global currentYServoPos
-        currentYServoPos = max(0, currentYServoPos - 5)
+        currentYServoPos = max(0, currentYServoPos - 1)
+        self.yDelta -= 1
         setServoAngle(yServo, currentYServoPos)
         print(f"move up - Y servo: {currentYServoPos} degrees")
 
     def moveDown(self):
         global currentYServoPos
-        currentYServoPos = min(180, currentYServoPos + 5)
+        currentYServoPos = min(180, currentYServoPos + 1)
+        self.yDelta += 1 
         setServoAngle(yServo, currentYServoPos)
         print(f"move down - Y servo: {currentYServoPos} degrees")
 
     def setOffsetX(self):
         """Set X offset based on current eye position difference from camera center"""
         global xOffset
-        # Get the current difference between eye position and camera center
-        if hasattr(self, 'currentEyeX'):
-            eye_diff = self.currentEyeX - FRAME_CENTER_X
-            xOffset += eye_diff
-            # Reset PID to prevent sudden jumps
-            x_pid.reset()
-            print(f"Set X offset to: {xOffset} (Eye diff from center: {eye_diff})")
-        else:
-            print("No current eye position available")
+        xOffset = self.xDelta
+        print(f"the x offset has been set to: {self.xDelta}")
 
     def setOffsetY(self):
         """Set Y offset based on current eye position difference from camera center"""
         global yOffset
-        # Get the current difference between eye position and camera center
-        if hasattr(self, 'currentEyeY'):
-            eye_diff = self.currentEyeY - FRAME_CENTER_Y
-            yOffset += eye_diff
-            # Reset PID to prevent sudden jumps
-            y_pid.reset()
-            print(f"Set Y offset to: {yOffset} (Eye diff from center: {eye_diff})")
-        else:
-            print("No current eye position available")
+        yOffset = self.yDelta
+        print(f"the yoffset is being set to {self.yDelta}")
 
     def resetOffsets(self):
         """Reset offsets to center the target at frame center"""
         global xOffset, yOffset
         xOffset = 0
         yOffset = 0
+        self.xDelta = 0
+        self.yDelta = 0
         # Reset PIDs
         x_pid.reset()
         y_pid.reset()
