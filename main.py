@@ -383,7 +383,6 @@ def resetPIDControllers():
     y_pid.reset()
     print("PID controllers reset")
 
-
 # this is the GUI class using tkinter library documentation can be found at https://docs.python.org/3/library/tk.html
 class Gui:
     # initializes the gui and sets up layout
@@ -392,6 +391,10 @@ class Gui:
         # basically the main window and tkinter elements are added to this via the pack method
         self.root = tk.Tk()
         self.root.title("The Awesome Eye Tracker") # defines window title :)
+
+        # Track current eye positions for offset calculation
+        self.currentEyeX = FRAME_CENTER_X
+        self.currentEyeY = FRAME_CENTER_Y
 
         # the way tkinter works is by first creating an element such as label or button with root as the parent element
         label = tk.Label(self.root, text="Press Start to begin tracking") 
@@ -425,8 +428,9 @@ class Gui:
         setFrame = tk.Frame(calibrationFrame, padx=10)
         setFrame.pack(side=tk.LEFT)
 
-        tk.Button(setFrame, text="Set Offset For X", command=self.setMaxX).pack(pady=5)
-        tk.Button(setFrame, text="Set Offset For Y", command=self.setMaxY).pack(pady=5)
+        tk.Button(setFrame, text="Set Offset For X", command=self.setOffsetX).pack(pady=5)
+        tk.Button(setFrame, text="Set Offset For Y", command=self.setOffsetY).pack(pady=5)
+        tk.Button(setFrame, text="Reset Offsets", command=self.resetOffsets).pack(pady=5)
         tk.Button(setFrame, text="Center Servos", command=self.centerServos).pack(pady=5)
 
     # this sets the tracking flag to true
@@ -475,17 +479,41 @@ class Gui:
         setServoAngle(yServo, currentYServoPos)
         print(f"move down - Y servo: {currentYServoPos} degrees")
 
-    def setMaxX(self):
+    def setOffsetX(self):
+        """Set X offset based on current eye position difference from camera center"""
         global xOffset
-        # Store current eye position as X offset
-        xOffset = getattr(self, 'lastEyeX', 0)
-        print(f"Set X offset to: {xOffset}")
+        # Get the current difference between eye position and camera center
+        if hasattr(self, 'currentEyeX'):
+            eye_diff = self.currentEyeX - FRAME_CENTER_X
+            xOffset += eye_diff
+            # Reset PID to prevent sudden jumps
+            x_pid.reset()
+            print(f"Set X offset to: {xOffset} (Eye diff from center: {eye_diff})")
+        else:
+            print("No current eye position available")
 
-    def setMaxY(self):
+    def setOffsetY(self):
+        """Set Y offset based on current eye position difference from camera center"""
         global yOffset
-        # Store current eye position as Y offset
-        yOffset = getattr(self, 'lastEyeY', 0)
-        print(f"Set Y offset to: {yOffset}")
+        # Get the current difference between eye position and camera center
+        if hasattr(self, 'currentEyeY'):
+            eye_diff = self.currentEyeY - FRAME_CENTER_Y
+            yOffset += eye_diff
+            # Reset PID to prevent sudden jumps
+            y_pid.reset()
+            print(f"Set Y offset to: {yOffset} (Eye diff from center: {eye_diff})")
+        else:
+            print("No current eye position available")
+
+    def resetOffsets(self):
+        """Reset offsets to center the target at frame center"""
+        global xOffset, yOffset
+        xOffset = 0
+        yOffset = 0
+        # Reset PIDs
+        x_pid.reset()
+        y_pid.reset()
+        print("Offsets reset to center")
 
     # this is to center the position of the servos when not tracking
     def centerServos(self):
