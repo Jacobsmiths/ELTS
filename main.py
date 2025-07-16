@@ -68,13 +68,13 @@ SERVO_FREQUENCY = 50    # PWM frequency for servos (50Hz standard)
 
 # PID controller parameters (tuned for smooth eye tracking)
 # Start with these conservative values and tune from here
-X_PID_KP = 0.5   # Proportional gain
-X_PID_KI = 0.02  # Integral gain (small to prevent windup)
-X_PID_KD = 0.05  # Derivative gain
+X_PID_KP = 18   # Proportional gain
+X_PID_KI = 8 # Integral gain (small to prevent windup)
+X_PID_KD = 3  # Derivative gain
 
-Y_PID_KP = 0.5   # Proportional gain
-Y_PID_KI = 0.02  # Integral gain (small to prevent windup)
-Y_PID_KD = 0.05  # Derivative gain
+Y_PID_KP = 9   # Proportional gain
+Y_PID_KI = 1  # Integral gain (small to prevent windup)
+Y_PID_KD = 0  # Derivative gain
 
 # Servo limits and constraints
 SERVO_MIN_ANGLE = 0
@@ -82,7 +82,7 @@ SERVO_MAX_ANGLE = 180
 SERVO_CENTER_ANGLE = 90
 
 # Maximum change per update (degrees) - prevents jerky movements
-MAX_SERVO_CHANGE = 2.0  # Smaller for smoother normalized control
+MAX_SERVO_CHANGE = 15  # Smaller for smoother normalized control
 
 # Initialize I2C bus and PCA9685
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -250,8 +250,8 @@ def trackEyes():
         with mp_face_mesh.FaceMesh(
             max_num_faces=1,
             refine_landmarks=True,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.1
         ) as face_mesh:
             
             while cap.isOpened() and not quitApplication:
