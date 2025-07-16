@@ -68,9 +68,9 @@ SERVO_FREQUENCY = 50    # PWM frequency for servos (50Hz standard)
 
 # PID controller parameters (tuned for smooth eye tracking)
 # Start with these conservative values and tune from here
-X_PID_KP = 0   # Proportional gain
-X_PID_KI = 0 # Integral gain (small to prevent windup)
-X_PID_KD = 0  # Derivative gain
+X_PID_KP = 18   # Proportional gain
+X_PID_KI = 8 # Integral gain (small to prevent windup)
+X_PID_KD = 3  # Derivative gain
 
 Y_PID_KP = 9   # Proportional gain
 Y_PID_KI = 1  # Integral gain (small to prevent windup)
@@ -389,10 +389,6 @@ class Gui:
         # basically the main window and tkinter elements are added to this via the pack method
         self.root = tk.Tk()
         self.root.title("The Awesome Eye Tracker") # defines window title :)
-
-        # Track current eye positions for offset calculation
-        self.currentEyeX = FRAME_CENTER_X
-        self.currentEyeY = FRAME_CENTER_Y
 
         # the way tkinter works is by first creating an element such as label or button with root as the parent element
         label = tk.Label(self.root, text="Press Start to begin tracking") 
