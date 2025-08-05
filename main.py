@@ -6,6 +6,7 @@ import mediapipe as mp
 from gpiozero import Servo
 import csv
 import time
+import GUI
 
 # defines global variables we will use
 # these are flags to control the application state
@@ -31,122 +32,6 @@ currentYServoPos = 0  # Range from -1 to 1
 TRACKING_SENSITIVITY_X = 0.002  # How much to move servo per pixel difference
 TRACKING_SENSITIVITY_Y = 0.002
 SERVO_SMOOTHING = 0.7  # Smoothing factor (0-1, higher = smoother but slower)
-
-# this is the GUI class using tkinter library documentation can be found at https://docs.python.org/3/library/tk.html
-class Gui:
-    # initializes the gui and sets up layout
-    def __init__(self):
-        # defines root element which everything else gets added to this element
-        # basically the main window and tkinter elements are added to this via the pack method
-        self.root = tk.Tk()
-        self.root.title("The Awesome Eye Tracker") # defines window title :)
-
-        # the way tkinter works is by first creating an element such as label or button with root as the parent element
-        label = tk.Label(self.root, text="Press Start to begin tracking") 
-        # then the created elements are packed/ added to the window 
-        label.pack(pady=10)
-
-        # Creates buttons and the methods run are the corresponding method names given to command parameter
-        # so th method set to command (in this case setStartTracking) will run when the Start button is pressed
-        start_button = tk.Button(self.root, text="Start", command=self.setStartTracking)
-        start_button.pack(pady=10)
-
-        stop_button = tk.Button(self.root, text="Stop", command=self.stopTracking)
-        stop_button.pack(pady=5)
-
-        exit_button = tk.Button(self.root, text="Exit", command=self.endProgram)
-        exit_button.pack(pady=10)
-
-        calibrationFrame = tk.Frame(self.root, padx=10, pady=10)
-        calibrationFrame.pack(pady=10)
-
-        # creates a smaller frame inside for an arrow control panel for adjusting offsets for testing
-        arrowFrame = tk.Frame(calibrationFrame, bg="lightgray", padx=10, pady=10)
-        arrowFrame.pack(side=tk.RIGHT, pady=10)
-
-        tk.Button(arrowFrame, text="left", command=self.moveLeft).grid(column=0, row=1)
-        tk.Button(arrowFrame, text="right", command=self.moveRight).grid(column=2, row=1)
-        tk.Button(arrowFrame, text="up", command=self.moveUp).grid(column=1, row=0)
-        tk.Button(arrowFrame, text="down", command=self.moveDown).grid(column=1, row=2)
-
-        # this frame contains the arrow frame and the buttons for settings offsets
-        setFrame = tk.Frame(calibrationFrame, padx=10)
-        setFrame.pack(side=tk.LEFT)
-
-        tk.Button(setFrame, text="Set Offset For X", command=self.setMaxX).pack(pady=5)
-        tk.Button(setFrame, text="Set Offset For Y", command=self.setMaxY).pack(pady=5)
-        tk.Button(setFrame, text="Center Servos", command=self.centerServos).pack(pady=5)
-
-    # this sets the tracking flag to true
-    def setStartTracking(self):
-        global tracking
-        tracking = True
-        print("start tracking")
-
-    # this sets the tracking flag to false
-    def stopTracking(self):
-        global tracking
-        tracking = False
-        print("stop tracking")
-
-    # this sets the quitApplication flag to true and then self.root.quit() ends the GUI loop
-    def endProgram(self):
-        global quitApplication
-        quitApplication = True
-        print("ending program")
-        self.root.quit() 
-
-    # this method manually moves the servos in the corresponding direction by setting the servo value to 
-    # the current position plus or minus .1 value
-    def moveLeft(self):
-        global currentXServoPos
-        currentXServoPos = max(-1, currentXServoPos - 0.1)
-        # xServo.value = currentXServoPos
-        print(f"move left - X servo: {currentXServoPos}")
-
-    def moveRight(self):
-        global currentXServoPos
-        currentXServoPos = min(1, currentXServoPos + 0.1)
-        # xServo.value = currentXServoPos
-        print(f"move right - X servo: {currentXServoPos}")
-
-    def moveUp(self):
-        global currentYServoPos
-        currentYServoPos = max(-1, currentYServoPos - 0.1)
-        # yServo.value = currentYServoPos
-        print(f"move up - Y servo: {currentYServoPos}")
-
-    def moveDown(self):
-        global currentYServoPos
-        currentYServoPos = min(1, currentYServoPos + 0.1)
-        # yServo.value = currentYServoPos
-        print(f"move down - Y servo: {currentYServoPos}")
-
-    def setMaxX(self):
-        global xOffset
-        # Store current eye position as X offset
-        xOffset = getattr(self, 'lastEyeX', 0)
-        print(f"Set X offset to: {xOffset}")
-
-    def setMaxY(self):
-        global yOffset
-        # Store current eye position as Y offset
-        yOffset = getattr(self, 'lastEyeY', 0)
-        print(f"Set Y offset to: {yOffset}")
-
-    # this is to center the position of the servos when not tracking
-    def centerServos(self):
-        global currentXServoPos, currentYServoPos
-        currentXServoPos = 0
-        currentYServoPos = 0
-        # xServo.mid()
-        # yServo.mid()
-        print("Servos centered")
-
-    # this method starts the GUI loop IMPORTANT: once this is called the program thread will be locked in the loop
-    # this is why its important to start the other thread before calling this method
-    def startGui(self):
-        self.root.mainloop()
 
 # this method is going to be sent to the second thread to run the eye tracking code and send it to the servos over GPIO
 def trackEyes():
@@ -347,9 +232,10 @@ if __name__ == "__main__":
     trackingThread = threading.Thread(target=trackEyes, daemon=True)
     trackingThread.start()
     
-    # Initialize and Start GUI in main thread
-    gui = Gui()
-    gui.startGui()
+    gui = GUI(startCommand=lambda: print("start"), stopCommand=lambda: print("stop"), setXCommand=lambda:print("set x"), setYCommand=lambda:print("set y"),
+                centerServosCommand=lambda:print('center servos'), upCommand=lambda:print("up"), downCommand=lambda:print("down"), leftCommand=lambda:print('left'),
+                rightCommand=lambda:print("right"))
+    gui.start()
     
     # Clean up once gui is closed
     print("Program ended")
