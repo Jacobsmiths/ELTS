@@ -1,7 +1,7 @@
 import tkinter as tk
 
 class GUI:
-    def __init__(self, startCommand, stopCommand, centerServosCommand, setXCommand, setYCommand, upCommand, downCommand, leftCommand, rightCommand):
+    def __init__(self, startCommand, stopCommand, centerServosCommand, resetOffsetsCommand, upCommand, downCommand, leftCommand, rightCommand):
         self.root = tk.Tk()
         self.root.title("ELTS")
         self.root.geometry("500x400")
@@ -44,15 +44,15 @@ class GUI:
         setFrame = tk.Frame(calibrationFrame, padx=10)
         setFrame.pack(side=tk.LEFT)
 
-        tk.Button(setFrame, text="Set Offset For X", command=setXCommand).pack(pady=5)
-        tk.Button(setFrame, text="Set Offset For Y", command=setYCommand).pack(pady=5)
+        tk.Button(setFrame, text="Clear offsets", command=resetOffsetsCommand).pack(pady=5)
         tk.Button(setFrame, text="Center Servos", command=centerServosCommand).pack(pady=5)
 
     def start(self):
         self.root.mainloop()
 
+# this is purely for testign the gui
 if __name__ == "__main__":
-    gui = GUI(startCommand=lambda: print("start"), stopCommand=lambda: print("stop"), setXCommand=lambda:print("set x"), setYCommand=lambda:print("set y"),
-                centerServosCommand=lambda:print('center servos'), upCommand=lambda:print("up"), downCommand=lambda:print("down"), leftCommand=lambda:print('left'),
-                rightCommand=lambda:print("right"))
+    gui = GUI(startCommand=lambda: print("start"), stopCommand=lambda: print("stop"), resetOffsetsCommand=lambda:print("reset offsets"),
+                centerServosCommand=lambda:print('center servos'), upCommand=lambda:print("up"), downCommand=lambda:print("down"),
+                leftCommand=lambda:print('left'), rightCommand=lambda:print("right"))
     gui.start()
