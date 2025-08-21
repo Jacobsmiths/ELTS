@@ -163,7 +163,7 @@ class ELTS:
             writer = self.initCSV(csvfile)
             startTime = time.time()
             try:
-                while cap.isOpened():
+                while not self.quitApplication:
                     ret, frame = cap.read()
                     if not ret:
                         break
