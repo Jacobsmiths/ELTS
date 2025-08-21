@@ -1,7 +1,7 @@
 import tkinter as tk
 
 class GUI:
-    def __init__(self, startCommand, stopCommand, centerServosCommand, resetOffsetsCommand, upCommand, downCommand, leftCommand, rightCommand):
+    def __init__(self, startCommand, stopCommand, centerServosCommand, resetOffsetsCommand, setXCommand, setYCommand, upCommand, downCommand, leftCommand, rightCommand):
         self.root = tk.Tk()
         self.root.title("ELTS")
         self.root.geometry("500x400")

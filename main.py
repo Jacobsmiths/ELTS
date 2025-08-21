@@ -247,7 +247,7 @@ if __name__ == "__main__":
     # Initialize and Start GUI in main thread
     gui = GUI(startCommand=lambda: print("start"), stopCommand=lambda: print("stop"), setXCommand=lambda:print("set x"), setYCommand=lambda:print("set y"),
                 centerServosCommand=lambda:print('center servos'), upCommand=lambda:print("up"), downCommand=lambda:print("down"), leftCommand=lambda:print('left'),
-                rightCommand=lambda:print("right"))
+                rightCommand=lambda:print("right"), resetOffsetsCommand=lambda:print('fart'))
     gui.start()
     
     # Clean up once gui is closed
