@@ -1,3 +1,4 @@
+import threading
 import cv2
 import mediapipe as mp
 import busio
@@ -37,6 +38,11 @@ class ELTS():
     LEFT_IRIS = [474, 475, 476, 477]
     RIGHT_IRIS = [469, 470, 471, 472]
 
+    # these are the camera fov angles
+    HORIZONTAL_VIEW = 68
+    VERTICAL_VIEW = 48
+
+
     def __init__(self):
         # Initialize I2C bus an d PCA9685
         i2c = busio.I2C(board.SCL, board.SDA)
@@ -54,8 +60,153 @@ class ELTS():
         self.xServo.angle = self.SERVO_CENTER_ANGLE
         self.yServo.angle = self.SERVO_CENTER_ANGLE
         
-        self.xPid = PIDController(self.X_PID_KP, self.X_PID_KI, self.X_PID_KD, self.FRAME_CENTER_X)
-        self.yPid = PIDController(self.Y_PID_KP, self.Y_PID_KI, self.Y_PID_KD, self.FRAME_CENTER_Y)
-
         self.currTime = time.perf_counter() # TODO might want to move this into the actual phase of tracking instead of having it count up not being
 
+    def initCamera(self):
+        # Try the standard indecies for camera ports or whatever
+        cap = None
+        for camera_index in [0, 1, 2]: 
+            try:
+                print(f"Trying camera index {camera_index}...")
+                cap = cv2.VideoCapture(camera_index)
+                
+                # Test if camera is working by reading a frame
+                ret, test_frame = cap.read()
+                if ret and test_frame is not None:
+                    print(f"Successfully connected to camera {camera_index}")
+                    break
+                else:
+                    cap.release()
+                    cap = None
+            except Exception as e:
+                print(f"Camera index {camera_index} failed: {e}")
+                if cap:
+                    cap.release()
+                cap = None
+        
+        if cap is None:
+            print("ERROR: No working camera found!")
+            return
+        
+        
+    def trackEyes(self, frame, face_mesh):
+        """Process a single frame and return eye coordinates"""
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = face_mesh.process(rgb)
+
+        if results.multi_face_landmarks:
+            # Get the face mesh landmarks
+            mesh = results.multi_face_landmarks[0].landmark
+
+            # using cords from face mesh its converted into cords onto the frame
+            leftCords = [(int(mesh[p].x * self.FRAME_WIDTH), int(mesh[p].y * self.FRAME_HEIGHT)) for p in self.LEFT_IRIS]
+            rightCords = [(int(mesh[p].x * self.FRAME_WIDTH), int(mesh[p].y * self.FRAME_HEIGHT)) for p in self.RIGHT_IRIS]
+
+            # Calculate eye centers
+            left_center = tuple(map(lambda x: sum(x) // len(x), zip(*leftCords)))
+            right_center = tuple(map(lambda x: sum(x) // len(x), zip(*rightCords)))
+
+            # Average of both eyes for middle of face tracking
+            eye_center_x = (left_center[0] + right_center[0]) // 2
+            eye_center_y = (left_center[1] + right_center[1]) // 2
+
+            # Apply calibration offsets
+            xCords = eye_center_x + self.xOffset
+            yCords = eye_center_y + self.yOffset
+
+            return (xCords, yCords)
+        return None
+    
+    def calculate(self, xCords, yCords): # so you get the coordinates of the target in the x and y direction
+        # normalize the cords by dividing by height and width of the screen respectively
+        xNorm = xCords/self.FRAME_WIDTH
+        yNorm = yCords/self.FRAME_HEIGHT
+
+        # then multiply by the FOV in degrees of the camera to get the angle required for the servos
+        xAngle = xNorm * self.HORIZONTAL_VIEW
+        yAngle = yNorm * self.VERTICAL_VIEW
+        return (xAngle, yAngle)
+    
+    def move(self, xAngle, yAngle):
+        if(xAngle > 0 and xAngle < self.SERVO_MAX_ANGLE):
+            self.xServo.angle = xAngle
+        if(yAngle > 0 and yAngle < self.SERVO_MAX_ANGLE):   
+            self.yServo.angle = yAngle
+
+    def main(self):
+        cap = self.initCamera()
+        if cap is None:
+            print("Failed to initialize camera")
+            return
+        
+        # Initialize MediaPipe ONCE outside the loop
+        face_mesh = mp.solutions.face_mesh.FaceMesh(
+            max_num_faces=1, 
+            refine_landmarks=True, 
+            min_detection_confidence=0.7,
+            min_tracking_confidence=0.5
+        )
+        with open('data.csv', 'w', newline='') as csvfile:
+            writer = self.initCSV(csvfile)
+            startTime = time.time()
+            try:
+                while cap.isOpened():
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+
+                    frame = cv2.flip(frame, 1)
+                    result = self.trackEyes(frame, face_mesh)
+                    if result is None:
+                        # cv2.putText(frame, "NO FACE DETECTED", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2) # this will never show cuz your not displaying frame
+                        continue  # skip this frame if no face is detected
+                    xCords, yCords = result
+
+                    # Draws tracking indicators on target, crosshairs, and servo angle
+                    cv2.circle(frame, (xCords, yCords), 5, (255, 0, 0), 2)
+                    cv2.line(frame, (self.FRAME_CENTER_X - 20, self.FRAME_CENTER_Y), (self.FRAME_CENTER_X + 20, self.FRAME_CENTER_Y), (255, 255, 255), 2)
+                    cv2.line(frame, (self.FRAME_CENTER_X, self.FRAME_CENTER_Y - 20), (self.FRAME_CENTER_X, self.FRAME_CENTER_Y + 20), (255, 255, 255), 2)
+                    cv2.putText(frame, f"Servo X: {self.xServo.angle}°", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                    cv2.putText(frame, f"Servo Y: {self.yServo.angle}°", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                    cv2.imshow("Eye Tracker", frame) # actually shows the frame
+
+                    # logic handling if we are tracking:
+                    if self.tracking:
+                        # writing data to the csv
+                        writer.writerow({"time": time.time() - startTime, "x": xCords, "y": yCords})
+                        csvfile.flush()
+                        # updates the positions of the servos
+                        angles = self.calculate(xCords, yCords)
+                        self.move(angles.xAngle, angles.yAngle)
+
+            except Exception as e:
+                print(f"Error in tracking loop: {e}")
+            finally:
+                # Cleanup
+                face_mesh.close()
+                if cap:
+                    cap.release()
+                cv2.destroyAllWindows()
+                print("Camera and windows cleaned up")
+
+        # clean up for the windows
+        if cap:
+            cap.release()
+        cv2.destroyAllWindows()
+        print("Camera and windows cleaned up")
+
+
+if __name__ == "__main__":
+    # Start tracking in a separate thread\
+    elts = ELTS()
+    trackingThread = threading.Thread(target=elts.trackEyes, daemon=True)
+    trackingThread.main()
+    
+    # Initialize and Start GUI in main thread
+    gui = GUI(startCommand=lambda: print("start"), stopCommand=lambda: print("stop"), setXCommand=lambda:print("set x"), setYCommand=lambda:print("set y"),
+                centerServosCommand=lambda:print('center servos'), upCommand=lambda:print("up"), downCommand=lambda:print("down"), leftCommand=lambda:print('left'),
+                rightCommand=lambda:print("right"))
+    gui.start()
+    
+    # Clean up once gui is closed
+    print("Program ended")

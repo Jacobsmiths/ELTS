@@ -240,9 +240,9 @@ class ELTS:
 # This is the main entry point of the program
 if __name__ == "__main__":
     # Start tracking in a separate thread\
-    # elts = ELTS()
-    # trackingThread = threading.Thread(target=elts.trackEyes, daemon=True)
-    # trackingThread.start()
+    elts = ELTS()
+    trackingThread = threading.Thread(target=elts.trackEyes, daemon=True)
+    trackingThread.start()
     
     # Initialize and Start GUI in main thread
     gui = GUI(startCommand=lambda: print("start"), stopCommand=lambda: print("stop"), setXCommand=lambda:print("set x"), setYCommand=lambda:print("set y"),
