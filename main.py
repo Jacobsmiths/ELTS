@@ -241,7 +241,7 @@ class ELTS:
 if __name__ == "__main__":
     # Start tracking in a separate thread\
     elts = ELTS()
-    trackingThread = threading.Thread(target=elts.trackEyes, daemon=True)
+    trackingThread = threading.Thread(target=elts.start, daemon=True)
     trackingThread.start()
     
     # Initialize and Start GUI in main thread
