@@ -157,7 +157,8 @@ class ELTS:
         # Initialize MediaPipe ONCE outside the loop
         face_mesh = mp.solutions.face_mesh.FaceMesh(
             max_num_faces=1, 
-            refine_landmarks=True, 
+            refine_landmarks=True,
+            static_image_mode=False,
             min_detection_confidence=0.7,
             min_tracking_confidence=0.5
         )
