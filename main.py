@@ -130,8 +130,9 @@ class ELTS:
             mesh = results.multi_face_landmarks[0].landmark
 
             # using cords from face mesh its converted into cords onto the frame
-            leftCords = [(int(mesh[p].x * self.FRAME_WIDTH), int(mesh[p].y * self.FRAME_HEIGHT)) for p in self.LEFT_IRIS]
-            rightCords = [(int(mesh[p].x * self.FRAME_WIDTH), int(mesh[p].y * self.FRAME_HEIGHT)) for p in self.RIGHT_IRIS]
+            frame_h, frame_w, _ = frame.shape
+            leftCords = [(int(mesh[p].x * frame_w), int(mesh[p].y * frame_h)) for p in self.LEFT_IRIS]
+            rightCords = [(int(mesh[p].x * frame_w), int(mesh[p].y * frame_h)) for p in self.RIGHT_IRIS]
 
             # Calculate eye centers
             left_center = tuple(map(lambda x: sum(x) // len(x), zip(*leftCords)))
@@ -185,6 +186,7 @@ class ELTS:
                     cv2.putText(frame, f"Servo X: {self.xServo.angle}°", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                     cv2.putText(frame, f"Servo Y: {self.yServo.angle}°", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                     cv2.imshow("Eye Tracker", frame) # actually shows the frame
+                    cv2.waitKey(1)
 
                     # logic handling if we are tracking:
                     if self.tracking:
@@ -193,7 +195,7 @@ class ELTS:
                         csvfile.flush()
                         # updates the positions of the servos
                         self.updatePositions(xCords, yCords)
-
+                        
             except Exception as e:
                 print(f"Error in tracking loop: {e}")
             finally:
