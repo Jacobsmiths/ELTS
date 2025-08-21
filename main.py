@@ -86,7 +86,12 @@ class ELTS:
             try:
                 print(f"Trying camera index {camera_index}...")
                 cap = cv2.VideoCapture(camera_index)
-                
+                # Camera settings
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.FRAME_WIDTH)  # Reduced resolution for better performance
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.FRAME_HEIGHT)
+                cap.set(cv2.CAP_PROP_FPS, 30)  # Set FPS
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer size to avoid lag
+
                 # Test if camera is working by reading a frame
                 ret, test_frame = cap.read()
                 if ret and test_frame is not None:
@@ -95,6 +100,8 @@ class ELTS:
                 else:
                     cap.release()
                     cap = None
+                    print(f"failed reading input from camera {camera_index}")
+                
             except Exception as e:
                 print(f"Camera index {camera_index} failed: {e}")
                 if cap:
@@ -104,12 +111,7 @@ class ELTS:
         if cap is None:
             print("ERROR: No working camera found!")
             return
-    
-        # Camera settings
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.FRAME_WIDTH)  # Reduced resolution for better performance
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.FRAME_HEIGHT)
-        cap.set(cv2.CAP_PROP_FPS, 30)  # Set FPS
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer size to avoid lag        
+
         return cap
 
     def initCSV(self, csvfile):
