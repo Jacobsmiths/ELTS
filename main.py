@@ -178,6 +178,10 @@ class ELTS:
                     result = self.trackEyes(frame, face_mesh)
                     if result is None:
                         # cv2.putText(frame, "NO FACE DETECTED", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2) # this will never show cuz your not displaying frame
+                        cv2.putText(frame, f"Servo X: {self.xServo.angle}°", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(frame, f"Servo Y: {self.yServo.angle}°", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.imshow("Eye Tracker", frame) # actually shows the frame
+                        cv2.waitKey(1)
                         continue  # skip this frame if no face is detected
                     xCords, yCords = result
 
