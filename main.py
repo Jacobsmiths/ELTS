@@ -27,11 +27,11 @@ class ELTS:
 
     # PID controller parameters (tuned for smooth eye tracking)
     # Start with these conservative values and tune from here
-    X_PID_KP = 1   # Proportional gain
+    X_PID_KP = .1   # Proportional gain
     X_PID_KI = 0 # Integral gain (small to prevent windup)
     X_PID_KD = 0  # Derivative gain
 
-    Y_PID_KP = 1   # Proportional gain
+    Y_PID_KP = .1   # Proportional gain
     Y_PID_KI = 0  # Integral gain (small to prevent windup)
     Y_PID_KD = 0  # Derivative gain
 
@@ -76,8 +76,8 @@ class ELTS:
         now = time.perf_counter()
         dt = now - self.currTime  # seconds, float
         self.currTime = now
-        deltaX = max(min(self.xPid.compute(xCords, dt) + self.xServo.angle, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
-        deltaY = max(min(self.yPid.compute(yCords, dt) + self.yServo.angle, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
+        deltaX = max(min(-self.xPid.compute(xCords, dt) + self.xServo.angle, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
+        deltaY = max(min(-self.yPid.compute(yCords, dt) + self.yServo.angle, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
         self.xServo.angle = deltaX
         self.yServo.angle = deltaY
 
