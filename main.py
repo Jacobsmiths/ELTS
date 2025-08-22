@@ -27,12 +27,12 @@ class ELTS:
 
     # PID controller parameters (tuned for smooth eye tracking)
     # Start with these conservative values and tune from here
-    X_PID_KP = .1   # Proportional gain
-    X_PID_KI = 0 # Integral gain (small to prevent windup)
+    X_PID_KP = .03   # Proportional gain
+    X_PID_KI = .05 # Integral gain (small to prevent windup)
     X_PID_KD = 0  # Derivative gain
 
-    Y_PID_KP = .1   # Proportional gain
-    Y_PID_KI = 0  # Integral gain (small to prevent windup)
+    Y_PID_KP = .02   # Proportional gain
+    Y_PID_KI = 0.05  # Integral gain (small to prevent windup)
     Y_PID_KD = 0  # Derivative gain
 
     # Servo limits and constraints
@@ -91,7 +91,7 @@ class ELTS:
                 # Camera settings
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.FRAME_WIDTH)  # Reduced resolution for better performance
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.FRAME_HEIGHT)
-                cap.set(cv2.CAP_PROP_FPS, 30)  # Set FPS
+                cap.set(cv2.CAP_PROP_FPS, 60)  # Set FPS
                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer size to avoid lag
 
                 # Test if camera is working by reading a frame
@@ -162,8 +162,8 @@ class ELTS:
             max_num_faces=1, 
             refine_landmarks=True,
             static_image_mode=False,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5
+            min_detection_confidence=0.3,
+            min_tracking_confidence=0.2
         )
         with open('data.csv', 'w', newline='') as csvfile:
             writer = self.initCSV(csvfile)
