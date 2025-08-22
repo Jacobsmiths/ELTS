@@ -76,8 +76,10 @@ class ELTS:
         now = time.perf_counter()
         dt = now - self.currTime  # seconds, float
         self.currTime = now
-        self.xServo.angle += self.xPid.compute(xCords, dt)
-        self.yServo.angle += self.yPid.compute(yCords, dt)
+        deltaX = max(min(self.xPid.compute(xCords, dt) + self.xServo.angle, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
+        deltaY = max(min(self.yPid.compute(yCords, dt) + self.yServo.angle, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
+        self.xServo.angle = deltaX
+        self.yServo.angle = deltaY
 
     def initCamera(self):
         # Try the standard indecies for camera ports or whatever
