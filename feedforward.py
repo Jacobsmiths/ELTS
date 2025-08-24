@@ -138,17 +138,15 @@ class ELTS():
             return (xCords, yCords)
         return None
     
-    def calculate(self, xCords, yCords): # so you get the coordinates of the target in the x and y direction
+    def move(self, xCords, yCords):
         # normalize the cords by dividing by height and width of the screen respectively
         xNorm = xCords/self.FRAME_WIDTH
         yNorm = yCords/self.FRAME_HEIGHT
 
-        # then multiply by the FOV in degrees of the camera to get the angle required for the servos
-        xAngle = xNorm * self.HORIZONTAL_VIEW
-        yAngle = yNorm * self.VERTICAL_VIEW
-        return (xAngle, yAngle)
-    
-    def move(self, xAngle, yAngle):
+        # then multiply by the FOV in degrees of the camera to get the angle required for the servos and then add the current angle to get new angle 
+        xAngle = xNorm * self.HORIZONTAL_VIEW + self.xServo.angle
+        yAngle = yNorm * self.VERTICAL_VIEW + self.yServo.angle
+
         if(xAngle > 0 and xAngle < self.SERVO_MAX_ANGLE):
             self.xServo.angle = xAngle
         if(yAngle > 0 and yAngle < self.SERVO_MAX_ANGLE):   
@@ -202,9 +200,8 @@ class ELTS():
                         # writing data to the csv
                         writer.writerow({"time": time.time() - startTime, "x": xCords, "y": yCords})
                         csvfile.flush()
-                        # updates the positions of the servos
-                        xAngle, yAngle = self.calculate(xCords=xCords, yCords=yCords)
-                        self.move(xAngle,yAngle)
+                        # updates the positions of the servos given positional coordinates
+                        self.move(xCords=xCords, yCords=yCords)
                         
             except Exception as e:
                 print(f"Error in tracking loop: {e}")
