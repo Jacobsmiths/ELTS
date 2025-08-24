@@ -232,7 +232,7 @@ if __name__ == "__main__":
     trackingThread.start()
     
     # Initialize and Start GUI in main thread
-    gui = GUI()
+    gui = GUI(startCommand=elts.startTracking, stopCommand=elts.stopTracking)
     gui.start()
     
     # Clean up once gui is closed
