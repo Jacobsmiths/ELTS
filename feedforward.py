@@ -156,22 +156,11 @@ class ELTS():
         off_x_deg = math.degrees(math.atan(nx * tan_h))
         off_y_deg = math.degrees(math.atan(ny * tan_v))
 
-        # 3) map to servo angles around mechanical center
-        # flip signs with INVERT flags if your rig is reversed
-        X_INVERT = 1   # set to -1 if it moves the wrong way
-        Y_INVERT = -1  # image y grows downward; often needs invert
+        target_x = self.SERVO_CENTER_ANGLE + off_x_deg
+        target_y = self.SERVO_CENTER_ANGLE + off_y_deg
 
-        target_x = self.SERVO_CENTER_ANGLE - X_INVERT * off_x_deg
-        target_y = self.SERVO_CENTER_ANGLE - Y_INVERT * off_y_deg
-
-        # 4) optional: rate limit for smoothness
-        MAX_STEP = 3.0
-        def step(cur, tgt):
-            delta = max(min(tgt - cur, MAX_STEP), -MAX_STEP)
-            return cur + delta
-
-        self.xServo.angle = max(min(step(self.xServo.angle, target_x), self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
-        self.yServo.angle = max(min(step(self.yServo.angle, target_y), self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
+        self.xServo.angle = max(min(target_x, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
+        self.yServo.angle = max(min(target_y, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
 
     def main(self):
         cap = self.initCamera()
