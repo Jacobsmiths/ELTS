@@ -211,6 +211,14 @@ class ELTS():
         cv2.destroyAllWindows()
         print("Camera and windows cleaned up")
 
+    def startTracking(self):
+        self.tracking = True
+        print("start tracking")
+
+    def stopTracking(self):
+        self.tracking = False
+        print("stop tracking")
+
 
 if __name__ == "__main__":
     # Start tracking in a separate thread\
