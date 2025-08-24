@@ -143,21 +143,11 @@ class ELTS():
         dx = xCords - self.FRAME_CENTER_X
         dy = yCords - self.FRAME_CENTER_Y
 
-        # 2) convert pixel error to angle using pinhole geometry
-        #    edge (±w/2, ±h/2) maps to ±FOV/2
-        tan_h = math.tan(math.radians(self.HORIZONTAL_VIEW / 2))
-        tan_v = math.tan(math.radians(self.VERTICAL_VIEW   / 2))
+        xAngle = dx / self.FRAME_WIDTH * self.HORIZONTAL_VIEW
+        yAngle = dy / self.FRAME_HEIGHT * self.VERTICAL_VIEW
 
-        # normalized coords in [-1, +1]
-        nx = dx / (self.FRAME_WIDTH  / 2.0)
-        ny = dy / (self.FRAME_HEIGHT / 2.0)
-
-        # angle offsets (degrees) from optical center
-        off_x_deg = math.degrees(math.atan(nx * tan_h))
-        off_y_deg = math.degrees(math.atan(ny * tan_v))
-
-        target_x = self.SERVO_CENTER_ANGLE + off_x_deg
-        target_y = self.SERVO_CENTER_ANGLE + off_y_deg
+        target_x = self.xServo.angle + xAngle
+        target_y = self.yServo.angle + yAngle
 
         self.xServo.angle = max(min(target_x, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
         self.yServo.angle = max(min(target_y, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
