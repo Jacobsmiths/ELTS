@@ -97,6 +97,11 @@ class ELTS():
 
         return cap
         
+    def initCSV(self, csvfile):
+        fieldnames=['time', 'x', 'y']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        return writer
         
     def trackEyes(self, frame, face_mesh):
         """Process a single frame and return eye coordinates"""
