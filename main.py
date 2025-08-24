@@ -28,11 +28,11 @@ class ELTS:
     # PID controller parameters (tuned for smooth eye tracking)
     # Start with these conservative values and tune from here
     X_PID_KP = .03   # Proportional gain
-    X_PID_KI = .05 # Integral gain (small to prevent windup)
+    X_PID_KI = .02 # Integral gain (small to prevent windup)
     X_PID_KD = 0  # Derivative gain
 
     Y_PID_KP = .02   # Proportional gain
-    Y_PID_KI = 0.05  # Integral gain (small to prevent windup)
+    Y_PID_KI = 0.01  # Integral gain (small to prevent windup)
     Y_PID_KD = 0  # Derivative gain
 
     # Servo limits and constraints
