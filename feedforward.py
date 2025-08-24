@@ -139,18 +139,39 @@ class ELTS():
         return None
     
     def move(self, xCords, yCords):
-        # normalize the cords by dividing by height and width of the screen respectively
-        xNorm = xCords/self.FRAME_WIDTH
-        yNorm = yCords/self.FRAME_HEIGHT
+        # 1) error from image center (pixels)
+        dx = xCords - self.FRAME_CENTER_X
+        dy = yCords - self.FRAME_CENTER_Y
 
-        # then multiply by the FOV in degrees of the camera to get the angle required for the servos and then add the current angle to get new angle 
-        xAngle = xNorm * self.HORIZONTAL_VIEW + self.xServo.angle
-        yAngle = yNorm * self.VERTICAL_VIEW + self.yServo.angle
+        # 2) convert pixel error to angle using pinhole geometry
+        #    edge (±w/2, ±h/2) maps to ±FOV/2
+        tan_h = math.tan(math.radians(self.HORIZONTAL_VIEW / 2))
+        tan_v = math.tan(math.radians(self.VERTICAL_VIEW   / 2))
 
-        if(xAngle > 0 and xAngle < self.SERVO_MAX_ANGLE):
-            self.xServo.angle = xAngle
-        if(yAngle > 0 and yAngle < self.SERVO_MAX_ANGLE):   
-            self.yServo.angle = yAngle
+        # normalized coords in [-1, +1]
+        nx = dx / (self.FRAME_WIDTH  / 2.0)
+        ny = dy / (self.FRAME_HEIGHT / 2.0)
+
+        # angle offsets (degrees) from optical center
+        off_x_deg = math.degrees(math.atan(nx * tan_h))
+        off_y_deg = math.degrees(math.atan(ny * tan_v))
+
+        # 3) map to servo angles around mechanical center
+        # flip signs with INVERT flags if your rig is reversed
+        X_INVERT = 1   # set to -1 if it moves the wrong way
+        Y_INVERT = -1  # image y grows downward; often needs invert
+
+        target_x = self.SERVO_CENTER_ANGLE - X_INVERT * off_x_deg
+        target_y = self.SERVO_CENTER_ANGLE - Y_INVERT * off_y_deg
+
+        # 4) optional: rate limit for smoothness
+        MAX_STEP = 3.0
+        def step(cur, tgt):
+            delta = max(min(tgt - cur, MAX_STEP), -MAX_STEP)
+            return cur + delta
+
+        self.xServo.angle = max(min(step(self.xServo.angle, target_x), self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
+        self.yServo.angle = max(min(step(self.yServo.angle, target_y), self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
 
     def main(self):
         cap = self.initCamera()
