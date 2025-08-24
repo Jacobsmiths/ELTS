@@ -1,3 +1,4 @@
+import math
 import threading
 import cv2
 import mediapipe as mp
@@ -39,8 +40,13 @@ class ELTS():
     RIGHT_IRIS = [469, 470, 471, 472]
 
     # these are the camera fov angles
-    HORIZONTAL_VIEW = 68
-    VERTICAL_VIEW = 48
+    diag_rad = math.radians(90)
+    half_diag = math.tan(diag_rad / 2)
+
+    norm = math.sqrt(16**2 + 9**2)
+
+    HORIZONTAL_VIEW = 2 * math.atan((16 / norm) * half_diag)
+    VERTICAL_VIEW = 2 * math.atan((9 / norm) * half_diag)
 
 
     def __init__(self):
