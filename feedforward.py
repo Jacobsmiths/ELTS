@@ -69,7 +69,12 @@ class ELTS():
             try:
                 print(f"Trying camera index {camera_index}...")
                 cap = cv2.VideoCapture(camera_index)
-                
+                # Camera settings
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.FRAME_WIDTH)  # Reduced resolution for better performance
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.FRAME_HEIGHT)
+                cap.set(cv2.CAP_PROP_FPS, 60)  # Set FPS
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer size to avoid lag
+
                 # Test if camera is working by reading a frame
                 ret, test_frame = cap.read()
                 if ret and test_frame is not None:
@@ -78,6 +83,8 @@ class ELTS():
                 else:
                     cap.release()
                     cap = None
+                    print(f"failed reading input from camera {camera_index}")
+                
             except Exception as e:
                 print(f"Camera index {camera_index} failed: {e}")
                 if cap:
@@ -87,6 +94,8 @@ class ELTS():
         if cap is None:
             print("ERROR: No working camera found!")
             return
+
+        return cap
         
         
     def trackEyes(self, frame, face_mesh):
@@ -99,8 +108,9 @@ class ELTS():
             mesh = results.multi_face_landmarks[0].landmark
 
             # using cords from face mesh its converted into cords onto the frame
-            leftCords = [(int(mesh[p].x * self.FRAME_WIDTH), int(mesh[p].y * self.FRAME_HEIGHT)) for p in self.LEFT_IRIS]
-            rightCords = [(int(mesh[p].x * self.FRAME_WIDTH), int(mesh[p].y * self.FRAME_HEIGHT)) for p in self.RIGHT_IRIS]
+            frame_h, frame_w, _ = frame.shape
+            leftCords = [(int(mesh[p].x * frame_w), int(mesh[p].y * frame_h)) for p in self.LEFT_IRIS]
+            rightCords = [(int(mesh[p].x * frame_w), int(mesh[p].y * frame_h)) for p in self.RIGHT_IRIS]
 
             # Calculate eye centers
             left_center = tuple(map(lambda x: sum(x) // len(x), zip(*leftCords)))
@@ -142,15 +152,16 @@ class ELTS():
         # Initialize MediaPipe ONCE outside the loop
         face_mesh = mp.solutions.face_mesh.FaceMesh(
             max_num_faces=1, 
-            refine_landmarks=True, 
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5
+            refine_landmarks=True,
+            static_image_mode=False,
+            min_detection_confidence=0.3,
+            min_tracking_confidence=0.2
         )
         with open('data.csv', 'w', newline='') as csvfile:
             writer = self.initCSV(csvfile)
             startTime = time.time()
             try:
-                while cap.isOpened():
+                while not self.quitApplication:
                     ret, frame = cap.read()
                     if not ret:
                         break
@@ -159,6 +170,10 @@ class ELTS():
                     result = self.trackEyes(frame, face_mesh)
                     if result is None:
                         # cv2.putText(frame, "NO FACE DETECTED", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2) # this will never show cuz your not displaying frame
+                        cv2.putText(frame, f"Servo X: {self.xServo.angle}°", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(frame, f"Servo Y: {self.yServo.angle}°", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.imshow("Eye Tracker", frame) # actually shows the frame
+                        cv2.waitKey(1)
                         continue  # skip this frame if no face is detected
                     xCords, yCords = result
 
@@ -169,6 +184,7 @@ class ELTS():
                     cv2.putText(frame, f"Servo X: {self.xServo.angle}°", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                     cv2.putText(frame, f"Servo Y: {self.yServo.angle}°", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                     cv2.imshow("Eye Tracker", frame) # actually shows the frame
+                    cv2.waitKey(1)
 
                     # logic handling if we are tracking:
                     if self.tracking:
@@ -176,9 +192,9 @@ class ELTS():
                         writer.writerow({"time": time.time() - startTime, "x": xCords, "y": yCords})
                         csvfile.flush()
                         # updates the positions of the servos
-                        angles = self.calculate(xCords, yCords)
-                        self.move(angles.xAngle, angles.yAngle)
-
+                        xAngle, yAngle = self.calculate(xCords=xCords, yCords=yCords)
+                        self.move(xAngle,yAngle)
+                        
             except Exception as e:
                 print(f"Error in tracking loop: {e}")
             finally:
