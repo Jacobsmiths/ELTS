@@ -39,14 +39,9 @@ class ELTS():
     LEFT_IRIS = [474, 475, 476, 477]
     RIGHT_IRIS = [469, 470, 471, 472]
 
-    # these are the camera fov angles
-    diag_rad = math.radians(90)
-    half_diag = math.tan(diag_rad / 2)
-
-    norm = math.sqrt(16**2 + 9**2)
-
-    HORIZONTAL_VIEW = 2 * math.atan((16 / norm) * half_diag)
-    VERTICAL_VIEW = 2 * math.atan((9 / norm) * half_diag)
+    # found these using the aspect ratio of 16:9 and that the diagnol is 90 degrees (using trig)
+    HORIZONTAL_VIEW = 78.4417983412 
+    VERTICAL_VIEW = 44.1235115669
 
 
     def __init__(self):
@@ -143,11 +138,12 @@ class ELTS():
         dx = xCords - self.FRAME_CENTER_X
         dy = yCords - self.FRAME_CENTER_Y
 
-        xAngle = dx / self.FRAME_WIDTH * self.HORIZONTAL_VIEW
-        yAngle = dy / self.FRAME_HEIGHT * self.VERTICAL_VIEW
+        xAngle = (dx / self.FRAME_WIDTH) * self.HORIZONTAL_VIEW
+        yAngle = (dy / self.FRAME_HEIGHT) * self.VERTICAL_VIEW
 
         target_x = self.xServo.angle + xAngle
         target_y = self.yServo.angle + yAngle
+        print(target_x, target_y)
 
         self.xServo.angle = max(min(target_x, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
         self.yServo.angle = max(min(target_y, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
