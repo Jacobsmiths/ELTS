@@ -141,8 +141,8 @@ class ELTS():
         xAngle = (dx / self.FRAME_WIDTH) * self.HORIZONTAL_VIEW
         yAngle = (dy / self.FRAME_HEIGHT) * self.VERTICAL_VIEW
 
-        target_x = self.xServo.angle + xAngle
-        target_y = self.yServo.angle + yAngle
+        target_x = self.xServo.angle + xAngle #* 0.5
+        target_y = self.yServo.angle + yAngle #* 0.5
         print(target_x, target_y)
 
         self.xServo.angle = max(min(target_x, self.SERVO_MAX_ANGLE), self.SERVO_MIN_ANGLE)
