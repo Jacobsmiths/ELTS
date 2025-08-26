@@ -220,23 +220,29 @@ class ELTS:
     
     def moveUp(self):
         self.yOffset += 1
+        self.yPid.set_setpoint(self.yOffset)
         print("move up")
     
     def moveDown(self):
         self.yOffset -= 1
+        self.yPid.set_setpoint(self.yOffset)
         print("move down")
 
     def moveRight(self):
         self.xOffset += 1
+        self.xPid.set_setpoint(self.xOffset)
         print("move right")
     
     def moveLeft(self):
         self.xOffset -= 1
+        self.xPid.set_setpoint(self.xOffset)
         print("move left")
     
     def clearOffsets(self):
         self.xOffset = 0
         self.yOffset = 0
+        self.xPid.set_setpoint(0)
+        self.yPid.set_setpoint(0)
         print("clear offsets")
 
     def startTracking(self):
@@ -247,6 +253,11 @@ class ELTS:
         self.tracking = False
         print("stop tracking")
 
+    def centerServos(self):
+        self.xServo.angle = self.SERVO_CENTER_ANGLE
+        self.yServo.angle = self.SERVO_CENTER_ANGLE
+        print("centered servos")
+
 
 # This is the main entry point of the program
 if __name__ == "__main__":
@@ -256,7 +267,7 @@ if __name__ == "__main__":
     trackingThread.start()
     
     # Initialize and Start GUI in main thread
-    gui = GUI(startCommand=elts.startTracking, stopCommand=elts.stopTracking)
+    gui = GUI(startCommand=elts.startTracking, stopCommand=elts.stopTracking, centerServosCommand=elts.centerServos, resetOffsetsCommand=elts.clearOffsets, upCommand=elts.moveUp, downCommand=elts.moveDown, rightCommand=elts.moveRight, leftCommand=elts.moveLeft)
     gui.start()
     
     # Clean up once gui is closed
