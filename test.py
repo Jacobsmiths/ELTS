@@ -247,8 +247,8 @@ class ELTS:
         # Configuration
         self.servo_config = ServoConfig()
         self.camera_config = CameraConfig()
-        self.x_pid_config = PIDConfig(kp=0.03, ki=0.02, kd=0.0)
-        self.y_pid_config = PIDConfig(kp=0.02, ki=0.01, kd=0.0)
+        self.x_pid_config = PIDConfig(kp=0.03, ki=0.002, kd=0.0)
+        self.y_pid_config = PIDConfig(kp=0.02, ki=0.002, kd=0.0)
         
         # State variables
         self.quit_application = False
@@ -301,7 +301,7 @@ class ELTS:
             current_time = time.perf_counter()
             dt = current_time - self.last_time
             self.last_time = current_time
-            
+
             # Apply calibration offsets
             target_x = x_coord + self.x_offset
             target_y = y_coord + self.y_offset
