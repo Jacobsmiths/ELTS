@@ -247,8 +247,8 @@ class ELTS:
         # Configuration
         self.servo_config = ServoConfig()
         self.camera_config = CameraConfig()
-        self.x_pid_config = PIDConfig(kp=0.03, ki=0.02, kd=0.0)
-        self.y_pid_config = PIDConfig(kp=0.02, ki=0.01, kd=0.0)
+        self.x_pid_config = PIDConfig(kp=0.03, ki=0.0, kd=0.0)
+        self.y_pid_config = PIDConfig(kp=0.02, ki=0.0, kd=0.0)
         
         # State variables
         self.quit_application = False
@@ -302,6 +302,8 @@ class ELTS:
             dt = current_time - self.last_time
             self.last_time = current_time
             
+            print(dt)
+            
             # Apply calibration offsets
             target_x = x_coord + self.x_offset
             target_y = y_coord + self.y_offset
@@ -333,9 +335,9 @@ class ELTS:
         cv2.line(frame, (center_x, center_y - 20), (center_x, center_y + 20), (255, 255, 255), 2)
         
         # Display servo angles
-        cv2.putText(frame, f"Servo X: {servo_x:.1f}°", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.putText(frame, f"Servo Y: {servo_y:.1f}°", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.putText(frame, f"Tracking: {'ON' if self.tracking_enabled else 'OFF'}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0) if self.tracking_enabled else (0, 0, 255), 2)
+        cv2.putText(frame, f"Servo X: {servo_x:.1f}°", (10, 30), cv2.FONT_HERSHEY_PLAIN, 0.7, (255, 255, 255), 2)
+        cv2.putText(frame, f"Servo Y: {servo_y:.1f}°", (10, 60), cv2.FONT_HERSHEY_PLAIN, 0.7, (255, 255, 255), 2)
+        cv2.putText(frame, f"Tracking: {'ON' if self.tracking_enabled else 'OFF'}", (10, 90), cv2.FONT_HERSHEY_PLAIN, 0.7, (0, 255, 0) if self.tracking_enabled else (0, 0, 255), 2)
     
     def start(self):
         """Main tracking loop"""
