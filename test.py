@@ -241,7 +241,7 @@ class CameraManager:
             logger.info("Camera released")
 
 class ELTS:
-    """Enhanced Laser Tracking System main class"""
+    """Eye Laser Tracking System main class"""
     
     def __init__(self):
         # Configuration
@@ -289,19 +289,13 @@ class ELTS:
                 center_y
             )
             
-            self.last_time = time.perf_counter()
-            
         except Exception as e:
             logger.error(f"Failed to initialize components: {e}")
             raise
     
     def update_servo_positions(self, x_coord: int, y_coord: int):
         """Update servo positions based on eye coordinates"""
-        try:
-            current_time = time.perf_counter()
-            dt = current_time - self.last_time
-            self.last_time = current_time
-
+        try:            
             # Apply calibration offsets
             target_x = x_coord + self.x_offset
             target_y = y_coord + self.y_offset
@@ -309,8 +303,8 @@ class ELTS:
             # Calculate PID outputs
             current_x, current_y = self.servo_controller.current_angles
             
-            delta_x = -self.x_pid.compute(target_x, dt) + current_x
-            delta_y = -self.y_pid.compute(target_y, dt) + current_y
+            delta_x = -self.x_pid.compute(target_x) + current_x
+            delta_y = -self.y_pid.compute(target_y) + current_y
             
             # Move servos
             self.servo_controller.move_to(delta_x, delta_y)
@@ -426,6 +420,8 @@ class ELTS:
     def stop_tracking(self):
         self.tracking_enabled = False
         logger.info("Tracking stopped")
+        self.x_pid.reset()
+        self.y_pid.reset()
     
     def center_servos(self):
         self.servo_controller.center_servos()
