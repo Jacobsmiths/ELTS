@@ -39,8 +39,8 @@ class PIDConfig:
 @dataclass
 class CameraConfig:
     """Configuration for camera parameters"""
-    width: int = 640
-    height: int = 480
+    width: int = 1280
+    height: int = 720
     fps: int = 60
     buffer_size: int = 1
 
@@ -247,8 +247,8 @@ class ELTS:
         # Configuration
         self.servo_config = ServoConfig()
         self.camera_config = CameraConfig()
-        self.x_pid_config = PIDConfig(kp=0.03, ki=0.002, kd=0.0)
-        self.y_pid_config = PIDConfig(kp=0.02, ki=0.002, kd=0.0)
+        self.x_pid_config = PIDConfig(kp=0.05, ki=0.01, kd=0.001)
+        self.y_pid_config = PIDConfig(kp=0.05, ki=0.01, kd=0.001)
         
         # State variables
         self.quit_application = False
@@ -303,8 +303,8 @@ class ELTS:
             # Calculate PID outputs
             current_x, current_y = self.servo_controller.current_angles
             
-            delta_x = -self.x_pid.compute(target_x) + current_x
-            delta_y = -self.y_pid.compute(target_y) + current_y
+            delta_x = self.x_pid.compute(target_x) + current_x
+            delta_y = self.y_pid.compute(target_y) + current_y
             
             # Move servos
             self.servo_controller.move_to(delta_x, delta_y)
@@ -349,7 +349,7 @@ class ELTS:
                         logger.warning("Failed to read frame from camera")
                         break
                     
-                    frame = cv2.flip(frame, 1)  # Mirror image
+                    # frame = cv2.flip(frame, 1)  # Mirror image
                     eye_coords = self.eye_tracker.detect_eyes(frame)
                     
                     if eye_coords:
